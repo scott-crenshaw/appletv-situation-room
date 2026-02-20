@@ -21,6 +21,11 @@ project.add_file('path/to/file.swift', force=False)
 project.save()
 ```
 
+## SwiftUI .repeatForever Animations Are Fragile With Dynamic Content
+**What went wrong:** News ticker used `withAnimation(.repeatForever)` to scroll. Every 120s RSS refresh created new `NewsItem` objects with fresh `UUID()` ids, causing SwiftUI to destroy/recreate `ForEach` children and kill the animation. `.onChange(of: headlines.count)` didn't catch it because count stayed the same.
+**Why:** `repeatForever` stores animation state in the view tree. When view identity changes (new UUIDs), the animation state is lost. Market ticker survived because `MarketQuote.id` = stable symbol strings.
+**Rule:** For continuous scrolling animations on content that refreshes, use `TimelineView(.animation)` with offset computed from elapsed time. This is immune to view rebuilds because there's no animation state — just a pure function of the clock.
+
 ## Timing Screen Rotation for Screenshots
 **What went wrong:** Calculated wait times for auto-rotation screenshots were sometimes off, capturing the wrong screen.
 **Why:** Timer drift, data loading delays, and not accounting for the initial loading screen.

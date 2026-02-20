@@ -8,6 +8,7 @@ class DashboardState: ObservableObject {
     // MARK: - Published state
 
     @Published var currentScreen: DashboardScreen = .situation
+    @Published var screenStartedAt: Date = Date()
     @Published var isAutoRotating = true
     @Published var marketQuotes: [MarketQuote] = []
     @Published var cryptoPrices: [CryptoPrice] = []
@@ -32,6 +33,7 @@ class DashboardState: ObservableObject {
 
     // Flight tracking
     @Published var flightPositions: [APIService.FlightPosition] = []
+    @Published var globalFlightPositions: [APIService.FlightPosition] = []
 
     // Location
     let locationManager = LocationManager()
@@ -90,11 +92,28 @@ class DashboardState: ObservableObject {
 
     // MARK: - Auto Rotation
 
+    /// Duration per screen — air traffic gets double time for local→global transition
+    func screenDuration(for screen: DashboardScreen) -> TimeInterval {
+        switch screen {
+        case .airTraffic: return 60
+        default: return autoRotateInterval
+        }
+    }
+
     private func startAutoRotation() {
-        rotationTimer = Timer.scheduledTimer(withTimeInterval: autoRotateInterval, repeats: true) { [weak self] _ in
+        scheduleNextRotation()
+    }
+
+    private func scheduleNextRotation() {
+        rotationTimer?.invalidate()
+        let duration = screenDuration(for: currentScreen)
+        rotationTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.isAutoRotating else { return }
-                self.advanceScreen()
+                guard let self else { return }
+                if self.isAutoRotating {
+                    self.advanceScreen()
+                }
+                self.scheduleNextRotation()
             }
         }
     }
@@ -104,6 +123,7 @@ class DashboardState: ObservableObject {
         guard let idx = screens.firstIndex(of: currentScreen) else { return }
         let next = screens.index(after: idx)
         currentScreen = next < screens.endIndex ? screens[next] : screens[0]
+        screenStartedAt = Date()
     }
 
     func previousScreen() {
@@ -114,10 +134,12 @@ class DashboardState: ObservableObject {
         } else {
             currentScreen = screens.last!
         }
+        screenStartedAt = Date()
     }
 
     func goToScreen(_ screen: DashboardScreen) {
         currentScreen = screen
+        screenStartedAt = Date()
         pauseAutoRotate()
     }
 
@@ -135,6 +157,7 @@ class DashboardState: ObservableObject {
         isAutoRotating = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
             self?.isAutoRotating = true
+            self?.scheduleNextRotation()
         }
     }
 
@@ -314,10 +337,14 @@ class DashboardState: ObservableObject {
     private func fetchFlights() async {
         do {
             let loc = locationManager.userLocation
-            flightPositions = try await APIService.shared.fetchFlightPositions(
+            async let localTask = APIService.shared.fetchFlightPositions(
                 lat: loc?.coordinate.latitude,
                 lon: loc?.coordinate.longitude
             )
+            async let globalTask = APIService.shared.fetchGlobalFlightPositions()
+
+            flightPositions = try await localTask
+            globalFlightPositions = (try? await globalTask) ?? []
         } catch {
             print("[Flights] Error: \(error.localizedDescription)")
         }

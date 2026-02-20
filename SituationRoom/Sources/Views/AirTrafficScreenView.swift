@@ -3,25 +3,35 @@ import CoreLocation
 import MapKit
 
 /// Screen 9: Air Traffic Monitor — full-screen flight map + nearby aircraft table.
+/// First 30s: local satellite view (250nm). Second 30s: worldwide view.
 struct AirTrafficScreenView: View {
     @ObservedObject var state: DashboardState
+    @State private var isGlobalPhase = false
+
+    private var activeFlights: [APIService.FlightPosition] {
+        isGlobalPhase ? state.globalFlightPositions : state.flightPositions
+    }
 
     var body: some View {
         HStack(spacing: 16) {
             // Left: Flight map with real geography (2/3 width)
             VStack(spacing: 12) {
-                sectionHeader("AIRSPACE TRAFFIC", subtitle: "\(state.flightPositions.count) AIRCRAFT TRACKED")
+                sectionHeader(
+                    isGlobalPhase ? "WORLDWIDE AIRSPACE" : "LOCAL AIRSPACE",
+                    subtitle: "\(activeFlights.count) AIRCRAFT TRACKED"
+                )
                 FlightMapView(
-                    flights: state.flightPositions,
-                    userLocation: state.locationManager.userLocation
+                    flights: activeFlights,
+                    userLocation: state.locationManager.userLocation,
+                    isGlobalPhase: isGlobalPhase
                 )
                 .frame(maxHeight: .infinity)
 
-                FlightStatsBar(flights: state.flightPositions)
+                FlightStatsBar(flights: activeFlights)
             }
             .frame(maxWidth: .infinity)
 
-            // Right: Nearby aircraft table (1/3 width)
+            // Right: Nearby aircraft table (always local data)
             VStack(spacing: 12) {
                 sectionHeader("NEAREST AIRCRAFT", subtitle: state.locationManager.locationStatus)
                 NearbyAircraftTable(flights: state.flightPositions)
@@ -32,6 +42,18 @@ struct AirTrafficScreenView: View {
             .frame(width: 640)
         }
         .padding(24)
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
+            let elapsed = now.timeIntervalSince(state.screenStartedAt)
+            let shouldBeGlobal = elapsed >= 30
+            if shouldBeGlobal != isGlobalPhase {
+                withAnimation(.easeInOut(duration: 2.0)) {
+                    isGlobalPhase = shouldBeGlobal
+                }
+            }
+        }
+        .onChange(of: state.currentScreen) {
+            isGlobalPhase = false
+        }
     }
 
     private func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
@@ -50,20 +72,33 @@ struct AirTrafficScreenView: View {
     }
 }
 
-// MARK: - Flight Map (MapKit with aircraft overlay)
+// MARK: - Flight Map (MapKit with aircraft overlay, local/global phases)
 
 struct FlightMapView: View {
     let flights: [APIService.FlightPosition]
     let userLocation: CLLocation?
+    let isGlobalPhase: Bool
 
-    // 250nm ≈ 463km — show a region slightly larger than the query radius
-    private var mapRegion: MKCoordinateRegion {
-        let center = userLocation?.coordinate ?? CLLocationCoordinate2D(latitude: 39.7392, longitude: -104.9903)
-        return MKCoordinateRegion(center: center, latitudinalMeters: 900_000, longitudinalMeters: 900_000)
+    @State private var cameraPosition: MapCameraPosition = .automatic
+
+    private var localCenter: CLLocationCoordinate2D {
+        userLocation?.coordinate ?? CLLocationCoordinate2D(latitude: 39.7392, longitude: -104.9903)
+    }
+
+    private var localPosition: MapCameraPosition {
+        .region(MKCoordinateRegion(center: localCenter, latitudinalMeters: 900_000, longitudinalMeters: 900_000))
+    }
+
+    private var globalPosition: MapCameraPosition {
+        // Full world view — camera pulled back to show all continents
+        .camera(MapCamera(
+            centerCoordinate: CLLocationCoordinate2D(latitude: 30, longitude: 20),
+            distance: 40_000_000 // ~40,000km = full globe
+        ))
     }
 
     var body: some View {
-        Map(initialPosition: .region(mapRegion), interactionModes: []) {
+        Map(position: $cameraPosition, interactionModes: []) {
             // User location marker
             if let loc = userLocation {
                 Annotation("", coordinate: loc.coordinate, anchor: .center) {
@@ -78,10 +113,10 @@ struct FlightMapView: View {
                 }
             }
 
-            // Aircraft — use lightweight annotations
+            // Aircraft annotations
             ForEach(flights) { flight in
                 Annotation("", coordinate: CLLocationCoordinate2D(latitude: flight.latitude, longitude: flight.longitude), anchor: .center) {
-                    AircraftDot(flight: flight)
+                    AircraftDot(flight: flight, isGlobal: isGlobalPhase)
                 }
             }
         }
@@ -92,11 +127,18 @@ struct FlightMapView: View {
                 .stroke(Color.cyan.opacity(0.15), lineWidth: 0.5)
         )
         .overlay(alignment: .topLeading) {
-            // Range ring legend
-            Text("250 NM RADIUS")
+            Text(isGlobalPhase ? "GLOBAL VIEW" : "250 NM RADIUS")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundColor(.cyan.opacity(0.5))
                 .padding(8)
+        }
+        .onAppear {
+            cameraPosition = localPosition
+        }
+        .onChange(of: isGlobalPhase) {
+            withAnimation(.easeInOut(duration: 2.5)) {
+                cameraPosition = isGlobalPhase ? globalPosition : localPosition
+            }
         }
     }
 }
@@ -104,14 +146,15 @@ struct FlightMapView: View {
 /// Lightweight aircraft dot for map annotation
 struct AircraftDot: View {
     let flight: APIService.FlightPosition
+    var isGlobal: Bool = false
 
     var body: some View {
-        // Rotated triangle showing heading
+        // Rotated triangle showing heading — smaller in global view
         Image(systemName: "arrowtriangle.up.fill")
-            .font(.system(size: flight.isMilitary ? 10 : 7))
+            .font(.system(size: isGlobal ? 4 : (flight.isMilitary ? 10 : 7)))
             .foregroundColor(dotColor)
             .rotationEffect(.degrees(flight.heading))
-            .shadow(color: dotColor.opacity(0.5), radius: 2)
+            .shadow(color: dotColor.opacity(0.5), radius: isGlobal ? 1 : 2)
     }
 
     private var dotColor: Color {

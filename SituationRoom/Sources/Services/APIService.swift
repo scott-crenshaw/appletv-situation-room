@@ -598,6 +598,71 @@ actor APIService {
         }
     }
 
+    /// Fetch worldwide flights from 3 regional ADSB.lol queries for the global map view.
+    func fetchGlobalFlightPositions() async throws -> [FlightPosition] {
+        // Three overlapping regions covering Americas, Europe/Africa, Asia/Oceania
+        let regions: [(lat: Double, lon: Double, dist: Int)] = [
+            (38, -98, 2500),   // Americas
+            (50, 10, 2000),    // Europe / Africa
+            (30, 80, 2500),    // Asia / Oceania
+        ]
+
+        var allFlights: [String: FlightPosition] = [:] // Dedupe by hex ID
+        for region in regions {
+            let urlString = "https://api.adsb.lol/v2/lat/\(region.lat)/lon/\(region.lon)/dist/\(region.dist)"
+            guard let url = URL(string: urlString) else { continue }
+            var request = URLRequest(url: url)
+            request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+
+            guard let (data, _) = try? await session.data(for: request),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let aircraft = json["ac"] as? [[String: Any]] else { continue }
+
+            for ac in aircraft {
+                guard let hex = ac["hex"] as? String,
+                      let lat = ac["lat"] as? Double,
+                      let lon = ac["lon"] as? Double else { continue }
+
+                let altBaro = ac["alt_baro"]
+                let altitude: Double
+                if let altNum = altBaro as? Double { altitude = altNum }
+                else if let altInt = altBaro as? Int { altitude = Double(altInt) }
+                else { continue }
+
+                let callsign = (ac["flight"] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
+                let registration = (ac["r"] as? String) ?? ""
+                let aircraftType = (ac["t"] as? String) ?? ""
+                let gs = ac["gs"] as? Double ?? 0
+                let track = ac["track"] as? Double ?? ac["calc_track"] as? Double ?? 0
+                let dbFlags = ac["dbFlags"] as? Int ?? 0
+
+                allFlights[hex] = FlightPosition(
+                    id: hex,
+                    callsign: callsign,
+                    registration: registration,
+                    aircraftType: aircraftType,
+                    latitude: lat,
+                    longitude: lon,
+                    altitude: altitude,
+                    heading: track,
+                    velocity: gs,
+                    originCountry: "",
+                    distanceNm: nil,
+                    isMilitary: dbFlags & 1 != 0,
+                    category: "",
+                    onGround: false
+                )
+            }
+        }
+
+        // Sample down to 2000 for map performance
+        let flights = Array(allFlights.values)
+        if flights.count > 2000 {
+            return Array(flights.shuffled().prefix(2000))
+        }
+        return flights
+    }
+
     // MARK: - Satellite Positions (CelesTrak GP data — no auth required)
 
     struct SatellitePosition: Identifiable {
