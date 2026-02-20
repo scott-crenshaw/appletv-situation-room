@@ -509,7 +509,7 @@ actor APIService {
             return []
         }
 
-        return aircraft.prefix(800).compactMap { ac -> FlightPosition? in
+        return aircraft.prefix(400).compactMap { ac -> FlightPosition? in
             guard let hex = ac["hex"] as? String,
                   let lat = ac["lat"] as? Double,
                   let lon = ac["lon"] as? Double else { return nil }
@@ -655,10 +655,11 @@ actor APIService {
             }
         }
 
-        // Sample down to 2000 for map performance
+        // Sample down to 500 for Apple TV GPU performance
+        // (2000 SwiftUI annotation views causes ticker stutter)
         let flights = Array(allFlights.values)
-        if flights.count > 2000 {
-            return Array(flights.shuffled().prefix(2000))
+        if flights.count > 500 {
+            return Array(flights.shuffled().prefix(500))
         }
         return flights
     }
