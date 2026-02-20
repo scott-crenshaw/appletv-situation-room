@@ -92,9 +92,32 @@ class DashboardState: ObservableObject {
         currentScreen = next < screens.endIndex ? screens[next] : screens[0]
     }
 
+    func previousScreen() {
+        let screens = DashboardScreen.allCases
+        guard let idx = screens.firstIndex(of: currentScreen) else { return }
+        if idx > screens.startIndex {
+            currentScreen = screens[screens.index(before: idx)]
+        } else {
+            currentScreen = screens.last!
+        }
+    }
+
     func goToScreen(_ screen: DashboardScreen) {
         currentScreen = screen
-        // Pause auto-rotate briefly when user navigates manually
+        pauseAutoRotate()
+    }
+
+    func navigateForward() {
+        advanceScreen()
+        pauseAutoRotate()
+    }
+
+    func navigateBack() {
+        previousScreen()
+        pauseAutoRotate()
+    }
+
+    private func pauseAutoRotate() {
         isAutoRotating = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
             self?.isAutoRotating = true

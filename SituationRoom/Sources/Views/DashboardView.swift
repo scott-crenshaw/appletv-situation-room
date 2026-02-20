@@ -49,8 +49,16 @@ struct DashboardView: View {
                 }
             }
         }
+        .focusable()
         .onAppear { state.startDashboard() }
         .onDisappear { state.stopDashboard() }
+        .onMoveCommand { direction in
+            switch direction {
+            case .right: state.navigateForward()
+            case .left: state.navigateBack()
+            default: break
+            }
+        }
     }
 
     private var loadingView: some View {
@@ -290,6 +298,7 @@ struct NewsTickerRow: View {
                 Color.clear.onAppear {
                     contentWidth = contentGeo.size.width
                 }
+                .id(headlines.count)
             }
         )
     }

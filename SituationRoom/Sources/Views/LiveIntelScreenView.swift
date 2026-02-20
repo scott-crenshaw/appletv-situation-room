@@ -1,23 +1,22 @@
 import SwiftUI
 import AVKit
 
-/// POC Test #2: Video playback on tvOS.
-/// Shows a live news stream + webcam grid.
+/// Screen 2: Live Intel — live news streams and webcam grid.
 struct LiveIntelScreenView: View {
     @ObservedObject var state: DashboardState
 
-    // Multiple HLS streams — updated Feb 2026
-    // DW News and ABC News confirmed working; others are fallback candidates
+    // Live HLS streams — verified Feb 2026
     private static let streams: [(name: String, url: String)] = [
+        ("NBC NEWS NOW", "https://dai.google.com/linear/hls/event/Sid4xiTQTkCT1SLu6rjUSQ/master.m3u8"),
+        ("BLOOMBERG", "https://www.bloomberg.com/media-manifest/streams/us.m3u8"),
+        ("NEWSMAX", "https://nmxlive.akamaized.net/hls/live/529965/Live_1/index.m3u8"),
+        ("SKY NEWS AU", "https://skynewsau-live.akamaized.net/hls/live/2002689/skynewsau-extra1/master.m3u8"),
         ("DW NEWS", "https://dwamdstream104.akamaized.net/hls/live/2015530/dwstream104/index.m3u8"),
-        ("ABC NEWS", "https://abcnews-streams.akamaized.net/hls/live/2023565/abcnewshudson6/master_4000.m3u8"),
-        ("FRANCE 24", "https://stream.france24.com/f24/mainlive/playlist.m3u8"),
-        ("AL JAZEERA", "https://d1cy85syyhvqz5.cloudfront.net/v1/master/7b67fbda7ab859400a821e9aa0deda20ab7ca3d2/aljazeeraLive/AJE/index.m3u8"),
     ]
 
     var body: some View {
         HStack(spacing: 2) {
-            // Left: Main live news feed (France 24)
+            // Left: Main live news feed (ABC News)
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Circle()
@@ -39,7 +38,7 @@ struct LiveIntelScreenView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Right: 2x2 grid — more live streams + webcam placeholders
+            // Right: 2x2 grid — Bloomberg, Newsmax, Sky News AU, DW News
             VStack(spacing: 2) {
                 HStack {
                     Circle()
@@ -55,29 +54,13 @@ struct LiveIntelScreenView: View {
                 .background(Color.white.opacity(0.05))
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 2) {
-                    // NASA TV (known good HLS)
-                    ZStack(alignment: .bottomLeading) {
-                        VideoPlayerView(hlsURL: Self.streams[1].url, label: Self.streams[1].name)
-                        streamLabel(Self.streams[1].name)
+                    ForEach(1..<Self.streams.count, id: \.self) { index in
+                        ZStack(alignment: .bottomLeading) {
+                            VideoPlayerView(hlsURL: Self.streams[index].url, label: Self.streams[index].name)
+                            streamLabel(Self.streams[index].name)
+                        }
+                        .aspectRatio(16/9, contentMode: .fit)
                     }
-                    .aspectRatio(16/9, contentMode: .fit)
-
-                    // Al Jazeera
-                    ZStack(alignment: .bottomLeading) {
-                        VideoPlayerView(hlsURL: Self.streams[2].url, label: Self.streams[2].name)
-                        streamLabel(Self.streams[2].name)
-                    }
-                    .aspectRatio(16/9, contentMode: .fit)
-
-                    // DW News
-                    ZStack(alignment: .bottomLeading) {
-                        VideoPlayerView(hlsURL: Self.streams[3].url, label: Self.streams[3].name)
-                        streamLabel(Self.streams[3].name)
-                    }
-                    .aspectRatio(16/9, contentMode: .fit)
-
-                    // Webcam placeholder
-                    WebcamCell(city: "JERUSALEM", status: "Live")
                 }
             }
             .frame(maxWidth: .infinity)
@@ -175,56 +158,3 @@ struct VideoPlayerView: View {
     }
 }
 
-// MARK: - Webcam Cell (placeholder for POC)
-
-struct WebcamCell: View {
-    let city: String
-    let status: String
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Placeholder — in production this would be an AVPlayer
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    VStack {
-                        Image(systemName: "video.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white.opacity(0.3))
-                        Text("YouTube stream")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.3))
-                    }
-                )
-
-            // Label overlay
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(.red)
-                    .frame(width: 6, height: 6)
-                Text(city)
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white)
-            }
-            .padding(8)
-            .background(.ultraThinMaterial.opacity(0.7))
-            .cornerRadius(4)
-            .padding(6)
-        }
-        .aspectRatio(16/9, contentMode: .fit)
-    }
-}
-
-// MARK: - NASA TV Test (second direct HLS available for POC)
-
-struct NASATVView: View {
-    var body: some View {
-        VideoPlayerView(hlsURL: "https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8")
-    }
-}

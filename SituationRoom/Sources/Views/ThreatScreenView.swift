@@ -33,8 +33,7 @@ struct ThreatScreenView: View {
             VStack(alignment: .leading, spacing: 16) {
                 sectionHeader("STRATEGIC THEATER POSTURE", count: nil)
 
-                // Static theater posture cards for POC
-                // In production, these would come from /api/theater-posture
+                // Static theater posture cards (no free API available for real-time theater data)
                 TheaterCard(name: "Iran Theater", status: "CRITICAL", airActivity: 2, seaActivity: 29, trend: "stable")
                 TheaterCard(name: "Baltic Theater", status: "CRITICAL", airActivity: 18, seaActivity: 148, trend: "stable")
                 TheaterCard(name: "Taiwan Strait", status: "ELEVATED", airActivity: 8, seaActivity: 42, trend: "increasing")

@@ -1,8 +1,7 @@
 import SwiftUI
 import MapKit
 
-/// POC Test #1: MapKit on tvOS with hotspot annotations and auto-panning.
-/// This is the primary "situation room" screen — globe + market sidebar.
+/// Screen 1: Global Situation — world map with hotspot annotations, auto-panning, and market sidebar.
 struct SituationScreenView: View {
     @ObservedObject var state: DashboardState
 

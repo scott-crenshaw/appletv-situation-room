@@ -56,7 +56,7 @@ let mapRegions: [MapRegion] = [
     MapRegion(id: "iran", name: "Iran Theater", center: CLLocationCoordinate2D(latitude: 32, longitude: 53), spanLat: 15, spanLon: 20),
 ]
 
-/// Sample hotspots for POC — a curated subset from World Monitor
+/// Curated global hotspots — conflicts, tension points, nuclear sites, bases, waterways
 let sampleHotspots: [Hotspot] = [
     // Active conflicts
     Hotspot(id: "ukraine-front", name: "Ukraine Front", coordinate: CLLocationCoordinate2D(latitude: 48.0, longitude: 37.8), category: .conflict, threatLevel: .critical),

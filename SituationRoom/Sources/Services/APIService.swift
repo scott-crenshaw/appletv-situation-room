@@ -414,7 +414,9 @@ actor APIService {
 
     func fetchRSSHeadlines(from feedURL: String, source: String, category: NewsItem.NewsCategory) async throws -> [NewsItem] {
         guard let url = URL(string: feedURL) else { return [] }
-        let (data, _) = try await session.data(from: url)
+        var request = URLRequest(url: url)
+        request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+        let (data, _) = try await session.data(for: request)
         return SimpleRSSParser.parse(data: data, source: source, category: category)
     }
 }
