@@ -559,9 +559,8 @@ struct FlightTrackerView: View {
 
                 guard x >= 0 && x <= size.width && y >= 0 && y <= size.height else { continue }
 
-                // Altitude-based color: low = green, cruise = cyan, high = white
-                let altKm = flight.altitude / 1000
-                let color: Color = altKm > 10 ? .white : altKm > 5 ? .cyan : .green
+                // Altitude-based color (altitude in feet)
+                let color: Color = flight.altitude > 33000 ? .white : flight.altitude > 16000 ? .cyan : .green
 
                 // Tiny dot
                 let dotSize: CGFloat = 1.5

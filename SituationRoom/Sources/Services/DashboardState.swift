@@ -313,7 +313,11 @@ class DashboardState: ObservableObject {
 
     private func fetchFlights() async {
         do {
-            flightPositions = try await APIService.shared.fetchFlightPositions()
+            let loc = locationManager.userLocation
+            flightPositions = try await APIService.shared.fetchFlightPositions(
+                lat: loc?.coordinate.latitude,
+                lon: loc?.coordinate.longitude
+            )
         } catch {
             print("[Flights] Error: \(error.localizedDescription)")
         }

@@ -458,23 +458,102 @@ actor APIService {
         return (symbol, prices)
     }
 
-    // MARK: - Flight Tracking (OpenSky Network — no auth required)
+    // MARK: - Flight Tracking (ADSB.lol primary, OpenSky fallback)
 
     struct FlightPosition: Identifiable {
-        let id: String // ICAO24 address
-        let callsign: String
+        let id: String          // ICAO hex address
+        let callsign: String    // e.g. "UAL580"
+        let registration: String // e.g. "N24736"
+        let aircraftType: String // ICAO type e.g. "B738"
         let latitude: Double
         let longitude: Double
-        let altitude: Double // meters
-        let heading: Double // degrees
-        let velocity: Double // m/s
+        let altitude: Double    // feet (baro)
+        let heading: Double     // degrees
+        let velocity: Double    // knots (ground speed)
         let originCountry: String
+        let distanceNm: Double? // pre-calculated by ADSB.lol radius query
+        let isMilitary: Bool
+        let category: String    // e.g. "A3" = large aircraft
         let onGround: Bool
     }
 
-    func fetchFlightPositions() async throws -> [FlightPosition] {
-        // OpenSky REST API — wide bounding box covering Americas + Europe + Middle East
-        // Global (no bbox) returns too much data and gets rate-limited faster
+    /// Fetch flights within radius of a point using ADSB.lol (primary).
+    /// Falls back to OpenSky if ADSB.lol fails.
+    func fetchFlightPositions(lat: Double? = nil, lon: Double? = nil) async throws -> [FlightPosition] {
+        // Try ADSB.lol first (no auth, no rate limits, richer data)
+        if let flights = try? await fetchFromADSBLol(lat: lat, lon: lon), !flights.isEmpty {
+            return flights
+        }
+        // Fallback to OpenSky
+        print("[Flights] ADSB.lol failed, falling back to OpenSky")
+        return try await fetchFromOpenSky()
+    }
+
+    private func fetchFromADSBLol(lat: Double?, lon: Double?) async throws -> [FlightPosition] {
+        let urlString: String
+        if let lat, let lon {
+            // Radius query: 250 nautical miles around user location
+            urlString = "https://api.adsb.lol/v2/lat/\(lat)/lon/\(lon)/dist/250"
+        } else {
+            // No location — use a wide area (CONUS center)
+            urlString = "https://api.adsb.lol/v2/lat/39.0/lon/-98.0/dist/500"
+        }
+
+        let url = URL(string: urlString)!
+        var request = URLRequest(url: url)
+        request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+
+        let (data, _) = try await session.data(for: request)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let aircraft = json["ac"] as? [[String: Any]] else {
+            return []
+        }
+
+        return aircraft.prefix(800).compactMap { ac -> FlightPosition? in
+            guard let hex = ac["hex"] as? String,
+                  let lat = ac["lat"] as? Double,
+                  let lon = ac["lon"] as? Double else { return nil }
+
+            let altBaro = ac["alt_baro"]
+            // alt_baro can be "ground" string or a number
+            let altitude: Double
+            if let altNum = altBaro as? Double {
+                altitude = altNum
+            } else if let altInt = altBaro as? Int {
+                altitude = Double(altInt)
+            } else {
+                return nil // On ground or no altitude
+            }
+
+            let callsign = (ac["flight"] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
+            let registration = (ac["r"] as? String) ?? ""
+            let aircraftType = (ac["t"] as? String) ?? ""
+            let gs = ac["gs"] as? Double ?? 0
+            let track = ac["track"] as? Double ?? ac["calc_track"] as? Double ?? 0
+            let distNm = ac["dst"] as? Double
+            let dbFlags = ac["dbFlags"] as? Int ?? 0
+            let category = (ac["category"] as? String) ?? ""
+
+            return FlightPosition(
+                id: hex,
+                callsign: callsign,
+                registration: registration,
+                aircraftType: aircraftType,
+                latitude: lat,
+                longitude: lon,
+                altitude: altitude,
+                heading: track,
+                velocity: gs,
+                originCountry: "",
+                distanceNm: distNm,
+                isMilitary: dbFlags & 1 != 0,
+                category: category,
+                onGround: false
+            )
+        }
+    }
+
+    private func fetchFromOpenSky() async throws -> [FlightPosition] {
         let url = URL(string: "https://opensky-network.org/api/states/all?lamin=10&lomin=-170&lamax=70&lomax=60")!
         var request = URLRequest(url: url)
         request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
@@ -485,7 +564,6 @@ actor APIService {
             return []
         }
 
-        // OpenSky state vector: [icao24, callsign, origin_country, time_position, last_contact, longitude, latitude, baro_altitude, on_ground, velocity, true_track, ...]
         return states.prefix(800).compactMap { state -> FlightPosition? in
             guard state.count >= 11,
                   let icao = state[0] as? String,
@@ -494,22 +572,27 @@ actor APIService {
 
             let callsign = (state[1] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
             let originCountry = (state[2] as? String) ?? ""
-            let altitude = state[7] as? Double ?? 0
+            let altitudeMeters = state[7] as? Double ?? 0
             let onGround = state[8] as? Bool ?? false
-            let velocity = state[9] as? Double ?? 0
+            let velocityMps = state[9] as? Double ?? 0
             let heading = state[10] as? Double ?? 0
 
-            guard !onGround else { return nil } // Only show airborne aircraft
+            guard !onGround else { return nil }
 
             return FlightPosition(
                 id: icao,
                 callsign: callsign,
+                registration: "",
+                aircraftType: "",
                 latitude: lat,
                 longitude: lon,
-                altitude: altitude,
+                altitude: altitudeMeters * 3.28084, // Convert m → ft to match ADSB.lol
                 heading: heading,
-                velocity: velocity,
+                velocity: velocityMps * 1.94384, // Convert m/s → knots to match ADSB.lol
                 originCountry: originCountry,
+                distanceNm: nil,
+                isMilitary: false,
+                category: "",
                 onGround: false
             )
         }
