@@ -42,6 +42,12 @@ struct CyberScreenView: View {
                     totalCVEs: state.recentCVEs.count
                 )
 
+                sectionHeader("NEXRAD WEATHER RADAR")
+                WeatherRadarView()
+
+                sectionHeader("SEVERE WEATHER ACTIVITY")
+                LightningMapView(alertCount: state.weatherAlerts.count)
+
                 Spacer()
             }
             .frame(maxWidth: .infinity)
@@ -352,6 +358,161 @@ struct ThreatLandscapePanel: View {
         case 5...6: return "ELEVATED"
         case 7...8: return "HIGH"
         default: return "SEVERE"
+        }
+    }
+}
+
+// MARK: - Weather Radar View (Iowa Mesonet NEXRAD WMS)
+
+struct WeatherRadarView: View {
+    @State private var radarImage: UIImage?
+    @State private var lastFetch = Date.distantPast
+
+    // Iowa Mesonet WMS for CONUS NEXRAD composite
+    private var radarURL: URL? {
+        let bbox = "-130,20,-60,55" // CONUS bounding box
+        let urlStr = "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=true&LAYERS=nexrad-n0q-900913&SRS=EPSG:4326&BBOX=\(bbox)&WIDTH=600&HEIGHT=300"
+        return URL(string: urlStr)
+    }
+
+    var body: some View {
+        ZStack {
+            // Dark US map background
+            Rectangle()
+                .fill(Color(red: 0.02, green: 0.04, blue: 0.08))
+
+            if let image = radarImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .opacity(0.85)
+            } else {
+                ProgressView()
+                    .scaleEffect(0.6)
+            }
+
+            // Overlay label
+            VStack {
+                Spacer()
+                HStack {
+                    Text("NEXRAD COMPOSITE")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.green.opacity(0.5))
+                        .padding(4)
+                    Spacer()
+                }
+            }
+        }
+        .frame(height: 160)
+        .cornerRadius(8)
+        .task {
+            await fetchRadar()
+        }
+    }
+
+    private func fetchRadar() async {
+        guard let url = radarURL else { return }
+        do {
+            var request = URLRequest(url: url)
+            request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+            let (data, _) = try await URLSession.shared.data(for: request)
+            if let img = UIImage(data: data) {
+                radarImage = img
+            }
+        } catch {
+            print("[Radar] Error: \(error.localizedDescription)")
+        }
+    }
+}
+
+// MARK: - Lightning Map View (simulated from weather alert density)
+
+struct LightningMapView: View {
+    let alertCount: Int
+    @State private var strikes: [(x: CGFloat, y: CGFloat, opacity: Double, age: Double)] = []
+
+    private let timer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Canvas { context, size in
+            // Dark background with grid
+            for x in stride(from: 0, to: size.width, by: 40) {
+                var line = Path()
+                line.move(to: CGPoint(x: x, y: 0))
+                line.addLine(to: CGPoint(x: x, y: size.height))
+                context.stroke(line, with: .color(.white.opacity(0.02)), lineWidth: 0.5)
+            }
+            for y in stride(from: 0, to: size.height, by: 40) {
+                var line = Path()
+                line.move(to: CGPoint(x: 0, y: y))
+                line.addLine(to: CGPoint(x: size.width, y: y))
+                context.stroke(line, with: .color(.white.opacity(0.02)), lineWidth: 0.5)
+            }
+
+            // Draw strikes
+            for strike in strikes {
+                // Flash glow
+                let glowSize = 12.0 * strike.opacity
+                let glowRect = CGRect(
+                    x: strike.x * size.width - glowSize / 2,
+                    y: strike.y * size.height - glowSize / 2,
+                    width: glowSize, height: glowSize
+                )
+                context.fill(Path(ellipseIn: glowRect), with: .color(.white.opacity(strike.opacity * 0.3)))
+
+                // Core flash
+                let coreSize = 3.0 * strike.opacity
+                let coreRect = CGRect(
+                    x: strike.x * size.width - coreSize / 2,
+                    y: strike.y * size.height - coreSize / 2,
+                    width: coreSize, height: coreSize
+                )
+                context.fill(Path(ellipseIn: coreRect), with: .color(.white.opacity(strike.opacity * 0.9)))
+
+                // Afterglow ring
+                if strike.age > 0.3 {
+                    let ringSize = 20.0 * (1 - strike.opacity)
+                    let ringRect = CGRect(
+                        x: strike.x * size.width - ringSize / 2,
+                        y: strike.y * size.height - ringSize / 2,
+                        width: ringSize, height: ringSize
+                    )
+                    context.stroke(Path(ellipseIn: ringRect), with: .color(.cyan.opacity(strike.opacity * 0.2)), lineWidth: 0.5)
+                }
+            }
+
+            // Activity label
+            let activityLevel = alertCount > 10 ? "HIGH" : alertCount > 5 ? "MODERATE" : "LOW"
+            let activityColor: Color = alertCount > 10 ? .orange : alertCount > 5 ? .yellow : .green
+            context.draw(
+                Text("ACTIVITY: \(activityLevel)")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(activityColor.opacity(0.6)),
+                at: CGPoint(x: size.width / 2, y: size.height - 8)
+            )
+        }
+        .frame(height: 100)
+        .background(Color(red: 0.01, green: 0.02, blue: 0.05))
+        .cornerRadius(8)
+        .onReceive(timer) { _ in
+            // Spawn new strike based on alert density
+            let spawnChance = min(Double(alertCount) * 0.03, 0.5)
+            if Double.random(in: 0...1) < spawnChance {
+                strikes.append((
+                    x: CGFloat.random(in: 0.1...0.9),
+                    y: CGFloat.random(in: 0.1...0.9),
+                    opacity: 1.0,
+                    age: 0
+                ))
+            }
+
+            // Age and fade existing strikes
+            strikes = strikes.compactMap { strike in
+                let newAge = strike.age + 0.15
+                let newOpacity = max(0, 1.0 - newAge)
+                if newOpacity <= 0 { return nil }
+                return (strike.x, strike.y, newOpacity, newAge)
+            }
         }
     }
 }

@@ -96,6 +96,12 @@ struct GlobalThreatMatrixView: View {
 
                 ThreatFeedPanel(headlines: state.headlines)
 
+                // Flight tracking density map
+                if !state.flightPositions.isEmpty {
+                    sectionHeader("AIRSPACE TRAFFIC")
+                    FlightTrackerView(flights: state.flightPositions)
+                }
+
                 Spacer()
             }
             .frame(width: 380)
@@ -528,5 +534,66 @@ struct ThreatFeedPanel: View {
         .padding(10)
         .background(Color.white.opacity(0.05))
         .cornerRadius(8)
+    }
+}
+
+// MARK: - Flight Tracker View
+
+struct FlightTrackerView: View {
+    let flights: [APIService.FlightPosition]
+
+    var body: some View {
+        Canvas { context, size in
+            // Map bounds: lon -130..50, lat 20..55 (N America + Europe)
+            let minLon = -130.0, maxLon = 50.0
+            let minLat = 20.0, maxLat = 55.0
+
+            // Draw coastline approximation (just a border)
+            let borderRect = CGRect(x: 2, y: 2, width: size.width - 4, height: size.height - 4)
+            context.stroke(Path(roundedRect: borderRect, cornerRadius: 4), with: .color(.white.opacity(0.05)), lineWidth: 0.5)
+
+            // Plot aircraft
+            for flight in flights {
+                let x = (flight.longitude - minLon) / (maxLon - minLon) * size.width
+                let y = (1 - (flight.latitude - minLat) / (maxLat - minLat)) * size.height
+
+                guard x >= 0 && x <= size.width && y >= 0 && y <= size.height else { continue }
+
+                // Altitude-based color: low = green, cruise = cyan, high = white
+                let altKm = flight.altitude / 1000
+                let color: Color = altKm > 10 ? .white : altKm > 5 ? .cyan : .green
+
+                // Tiny dot
+                let dotSize: CGFloat = 1.5
+                let dotRect = CGRect(x: x - dotSize / 2, y: y - dotSize / 2, width: dotSize, height: dotSize)
+                context.fill(Path(ellipseIn: dotRect), with: .color(color.opacity(0.7)))
+
+                // Heading indicator (tiny line)
+                let headingRad = flight.heading * .pi / 180
+                let lineLen: CGFloat = 4
+                var headingPath = Path()
+                headingPath.move(to: CGPoint(x: x, y: y))
+                headingPath.addLine(to: CGPoint(
+                    x: x + lineLen * sin(headingRad),
+                    y: y - lineLen * cos(headingRad)
+                ))
+                context.stroke(headingPath, with: .color(color.opacity(0.3)), lineWidth: 0.5)
+            }
+
+            // Count label
+            context.draw(
+                Text("\(flights.count) AIRCRAFT")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(.cyan.opacity(0.6)),
+                at: CGPoint(x: size.width / 2, y: size.height - 8)
+            )
+        }
+        .frame(height: 120)
+        .background(Color(red: 0.02, green: 0.03, blue: 0.06))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.cyan.opacity(0.1), lineWidth: 0.5)
+        )
     }
 }

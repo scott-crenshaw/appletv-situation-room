@@ -50,6 +50,12 @@ struct ThreatScreenView: View {
                     ConflictRow(name: "Sahel Region", status: "ACTIVE", intensity: "Elevated")
                 }
 
+                // Radar sweep
+                if !state.earthquakes.isEmpty {
+                    sectionHeader("SEISMIC RADAR", count: nil)
+                    RadarSweepView(earthquakes: state.earthquakes)
+                }
+
                 Spacer()
             }
             .frame(width: 500)
@@ -251,5 +257,91 @@ struct QuakeRingPulse: View {
                     opacity = 0
                 }
             }
+    }
+}
+
+// MARK: - Radar Sweep Display
+
+struct RadarSweepView: View {
+    let earthquakes: [Earthquake]
+    @State private var sweepAngle: Double = 0
+
+    private let timer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Canvas { context, size in
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let radius = min(size.width, size.height) / 2 - 4
+
+            // Background circles
+            for r in stride(from: 0.25, through: 1.0, by: 0.25) {
+                let circleRect = CGRect(
+                    x: center.x - radius * r, y: center.y - radius * r,
+                    width: radius * r * 2, height: radius * r * 2
+                )
+                context.stroke(Path(ellipseIn: circleRect), with: .color(.green.opacity(0.1)), lineWidth: 0.5)
+            }
+
+            // Crosshairs
+            var hLine = Path()
+            hLine.move(to: CGPoint(x: center.x - radius, y: center.y))
+            hLine.addLine(to: CGPoint(x: center.x + radius, y: center.y))
+            context.stroke(hLine, with: .color(.green.opacity(0.1)), lineWidth: 0.5)
+
+            var vLine = Path()
+            vLine.move(to: CGPoint(x: center.x, y: center.y - radius))
+            vLine.addLine(to: CGPoint(x: center.x, y: center.y + radius))
+            context.stroke(vLine, with: .color(.green.opacity(0.1)), lineWidth: 0.5)
+
+            // Sweep arm with trail
+            let sweepRad = sweepAngle * .pi / 180
+            for i in 0..<30 {
+                let trailAngle = sweepRad - Double(i) * 0.02
+                let opacity = 0.3 * (1.0 - Double(i) / 30.0)
+                var armPath = Path()
+                armPath.move(to: center)
+                armPath.addLine(to: CGPoint(
+                    x: center.x + radius * cos(trailAngle),
+                    y: center.y + radius * sin(trailAngle)
+                ))
+                context.stroke(armPath, with: .color(.green.opacity(opacity)), lineWidth: 1.5)
+            }
+
+            // Earthquake blips
+            for quake in earthquakes.prefix(12) {
+                // Map lat/lon to polar position (arbitrary but consistent mapping)
+                let angle = (quake.longitude + 180) / 360 * 2 * .pi
+                let dist = (90 - abs(quake.latitude)) / 90 * Double(radius) * 0.9
+
+                let blipX = center.x + dist * cos(angle)
+                let blipY = center.y + dist * sin(angle)
+
+                // Blip brightness fades after sweep passes
+                let angleDiff = sweepRad - angle
+                let normalizedDiff = angleDiff.truncatingRemainder(dividingBy: 2 * .pi)
+                let fadeAmount = normalizedDiff > 0 && normalizedDiff < .pi ? (1.0 - normalizedDiff / .pi) : 0.15
+
+                let blipSize = max(3, quake.magnitude - 3) * 2
+                let blipColor: Color = quake.magnitude >= 6 ? .red : quake.magnitude >= 5 ? .orange : .green
+
+                let blipRect = CGRect(x: blipX - blipSize / 2, y: blipY - blipSize / 2, width: blipSize, height: blipSize)
+                context.fill(Path(ellipseIn: blipRect), with: .color(blipColor.opacity(fadeAmount * 0.8)))
+
+                // Glow
+                let glowRect = CGRect(x: blipX - blipSize, y: blipY - blipSize, width: blipSize * 2, height: blipSize * 2)
+                context.fill(Path(ellipseIn: glowRect), with: .color(blipColor.opacity(fadeAmount * 0.2)))
+            }
+        }
+        .frame(height: 200)
+        .background(Color.black.opacity(0.3))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.green.opacity(0.15), lineWidth: 1)
+        )
+        .onReceive(timer) { _ in
+            sweepAngle += 1.2 // ~4 second rotation
+            if sweepAngle >= 360 { sweepAngle -= 360 }
+        }
     }
 }

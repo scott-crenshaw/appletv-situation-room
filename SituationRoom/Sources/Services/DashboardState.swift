@@ -25,8 +25,13 @@ class DashboardState: ObservableObject {
     @Published var asteroidApproaches: [AsteroidApproach] = []
     @Published var naturalEvents: [NaturalEvent] = []
 
-    // Space — Aurora
+    // Space — Aurora, Solar & Satellites
     @Published var auroraData: [[Int]] = [] // [lon, lat, probability]
+    @Published var solarXrayFlux: [(Date, Double)] = [] // time, flux
+    @Published var satellitePositions: [APIService.SatellitePosition] = []
+
+    // Flight tracking
+    @Published var flightPositions: [APIService.FlightPosition] = []
 
     // Cyber & Infrastructure
     @Published var weatherAlerts: [WeatherAlert] = []
@@ -160,8 +165,9 @@ class DashboardState: ObservableObject {
         async let eventsTask: () = fetchNaturalEvents()
         async let cyberTask: () = fetchCyberData()
         async let deepMarketsTask: () = fetchDeepMarkets()
+        async let flightsTask: () = fetchFlights()
 
-        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask)
+        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask)
         lastUpdated = Date()
     }
 
@@ -241,6 +247,8 @@ class DashboardState: ObservableObject {
             issPosition = try await iss
             asteroidApproaches = try await asteroids
             auroraData = (try? await aurora) ?? []
+            solarXrayFlux = (try? await APIService.shared.fetchSolarXrayFlux()) ?? []
+            satellitePositions = (try? await APIService.shared.fetchSatellitePositions()) ?? []
         } catch {
             print("[Space] Error: \(error.localizedDescription)")
         }
@@ -295,6 +303,14 @@ class DashboardState: ObservableObject {
             recentCVEs = try await cves
         } catch {
             print("[Cyber] Error: \(error.localizedDescription)")
+        }
+    }
+
+    private func fetchFlights() async {
+        do {
+            flightPositions = try await APIService.shared.fetchFlightPositions()
+        } catch {
+            print("[Flights] Error: \(error.localizedDescription)")
         }
     }
 }

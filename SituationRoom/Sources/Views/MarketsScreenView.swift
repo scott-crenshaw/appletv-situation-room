@@ -24,6 +24,12 @@ struct MarketsScreenView: View {
                     }
                 }
 
+                // Stock heatmap
+                if !state.watchlistQuotes.isEmpty {
+                    sectionHeader("S&P 500 HEATMAP")
+                    StockHeatmapView(quotes: state.watchlistQuotes)
+                }
+
                 Spacer()
             }
             .frame(maxWidth: .infinity)
@@ -210,5 +216,53 @@ struct VIXCard: View {
         .padding(12)
         .background(Color.white.opacity(0.05))
         .cornerRadius(8)
+    }
+}
+
+// MARK: - Stock Heatmap
+
+struct StockHeatmapView: View {
+    let quotes: [MarketQuote]
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 7), spacing: 3) {
+            ForEach(quotes) { quote in
+                HeatmapCell(quote: quote)
+            }
+        }
+    }
+}
+
+struct HeatmapCell: View {
+    let quote: MarketQuote
+
+    private var cellColor: Color {
+        let pct = quote.changePercent
+        if pct > 3 { return Color(red: 0, green: 0.7, blue: 0) }
+        if pct > 1.5 { return Color(red: 0, green: 0.5, blue: 0) }
+        if pct > 0.5 { return Color(red: 0, green: 0.35, blue: 0) }
+        if pct > 0 { return Color(red: 0, green: 0.2, blue: 0) }
+        if pct > -0.5 { return Color(red: 0.2, green: 0, blue: 0) }
+        if pct > -1.5 { return Color(red: 0.35, green: 0, blue: 0) }
+        if pct > -3 { return Color(red: 0.5, green: 0, blue: 0) }
+        return Color(red: 0.7, green: 0, blue: 0)
+    }
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(quote.displaySymbol)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .lineLimit(1)
+            Text(quote.formattedPercent)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.9))
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.8), value: quote.formattedPercent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(cellColor)
+        .cornerRadius(3)
     }
 }

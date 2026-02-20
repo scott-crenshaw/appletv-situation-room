@@ -51,6 +51,12 @@ struct SpaceScreenView: View {
                     }
                 }
 
+                // Solar X-ray flux chart
+                if !state.solarXrayFlux.isEmpty {
+                    sectionHeader("GOES X-RAY FLUX (24H)")
+                    SolarFlareChartView(data: state.solarXrayFlux)
+                }
+
                 Spacer()
             }
             .frame(maxWidth: .infinity)
@@ -69,6 +75,12 @@ struct SpaceScreenView: View {
                             }
                         }
                     }
+                }
+
+                // Satellite constellation
+                if !state.satellitePositions.isEmpty {
+                    sectionHeader("STARLINK CONSTELLATION")
+                    SatelliteConstellationView(satellites: state.satellitePositions)
                 }
 
                 // Doomsday Clock
@@ -467,5 +479,152 @@ struct AuroraOvalView: View {
         .frame(height: 180)
         .background(Color.white.opacity(0.03))
         .cornerRadius(12)
+    }
+}
+
+// MARK: - Solar Flare X-ray Flux Chart
+
+struct SolarFlareChartView: View {
+    let data: [(Date, Double)]
+
+    var body: some View {
+        Canvas { context, size in
+            guard data.count >= 2 else { return }
+
+            let fluxValues = data.map { $0.1 }
+            let logValues = fluxValues.map { log10(max($0, 1e-9)) }
+            let minLog = logValues.min() ?? -9
+            let maxLog = max(logValues.max() ?? -4, minLog + 1)
+            let range = maxLog - minLog
+
+            // Draw flux classification thresholds
+            let thresholds: [(label: String, value: Double, color: Color)] = [
+                ("X", -4, .red),
+                ("M", -5, .orange),
+                ("C", -6, .yellow),
+                ("B", -7, .green),
+            ]
+
+            for threshold in thresholds {
+                let y = size.height * (1 - CGFloat((threshold.value - minLog) / range))
+                if y > 0 && y < size.height {
+                    // Threshold line
+                    var linePath = Path()
+                    linePath.move(to: CGPoint(x: 0, y: y))
+                    linePath.addLine(to: CGPoint(x: size.width, y: y))
+                    context.stroke(linePath, with: .color(threshold.color.opacity(0.2)), lineWidth: 0.5)
+
+                    // Label
+                    context.draw(
+                        Text(threshold.label)
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundColor(threshold.color.opacity(0.5)),
+                        at: CGPoint(x: 10, y: y - 6)
+                    )
+                }
+            }
+
+            // Draw flux line
+            var path = Path()
+            for (i, entry) in data.enumerated() {
+                let x = size.width * CGFloat(i) / CGFloat(data.count - 1)
+                let logVal = log10(max(entry.1, 1e-9))
+                let y = size.height * (1 - CGFloat((logVal - minLog) / range))
+
+                if i == 0 {
+                    path.move(to: CGPoint(x: x, y: y))
+                } else {
+                    path.addLine(to: CGPoint(x: x, y: y))
+                }
+            }
+
+            // Glow effect
+            context.stroke(path, with: .color(.cyan.opacity(0.15)), lineWidth: 6)
+            context.stroke(path, with: .color(.cyan.opacity(0.4)), lineWidth: 2)
+            context.stroke(path, with: .color(.cyan), lineWidth: 1)
+
+            // Current flux level label
+            if let lastFlux = fluxValues.last {
+                let flareClass: String
+                let classColor: Color
+                switch log10(lastFlux) {
+                case (-4)...: flareClass = "X-CLASS"; classColor = .red
+                case (-5)..<(-4): flareClass = "M-CLASS"; classColor = .orange
+                case (-6)..<(-5): flareClass = "C-CLASS"; classColor = .yellow
+                default: flareClass = "B-CLASS"; classColor = .green
+                }
+
+                context.draw(
+                    Text(flareClass)
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(classColor),
+                    at: CGPoint(x: size.width - 35, y: 10)
+                )
+            }
+        }
+        .frame(height: 120)
+        .padding(8)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Satellite Constellation View
+
+struct SatelliteConstellationView: View {
+    let satellites: [APIService.SatellitePosition]
+
+    var body: some View {
+        Canvas { context, size in
+            let centerX = size.width / 2
+            let centerY = size.height / 2
+            let radius = min(centerX, centerY) - 4
+
+            // Draw Earth circle
+            let earthRect = CGRect(x: centerX - radius * 0.3, y: centerY - radius * 0.3,
+                                   width: radius * 0.6, height: radius * 0.6)
+            context.fill(Path(ellipseIn: earthRect), with: .color(Color(red: 0, green: 0.1, blue: 0.15)))
+            context.stroke(Path(ellipseIn: earthRect), with: .color(.cyan.opacity(0.3)), lineWidth: 0.5)
+
+            // Orbital ring
+            let orbitRect = CGRect(x: centerX - radius, y: centerY - radius,
+                                   width: radius * 2, height: radius * 2)
+            context.stroke(Path(ellipseIn: orbitRect), with: .color(.cyan.opacity(0.08)), lineWidth: 0.5)
+
+            // Plot satellite positions
+            for sat in satellites {
+                // Map lat/lon to 2D projection
+                let lonRad = sat.longitude * .pi / 180
+                let latRad = sat.latitude * .pi / 180
+
+                let x = centerX + radius * 0.85 * cos(latRad) * sin(lonRad)
+                let y = centerY - radius * 0.85 * sin(latRad)
+
+                // Tiny glowing dot
+                let dotSize: CGFloat = 2
+                let dotRect = CGRect(x: x - dotSize / 2, y: y - dotSize / 2, width: dotSize, height: dotSize)
+                context.fill(Path(ellipseIn: dotRect), with: .color(.cyan.opacity(0.7)))
+
+                // Glow
+                let glowSize: CGFloat = 5
+                let glowRect = CGRect(x: x - glowSize / 2, y: y - glowSize / 2, width: glowSize, height: glowSize)
+                context.fill(Path(ellipseIn: glowRect), with: .color(.cyan.opacity(0.15)))
+            }
+
+            // Label
+            context.draw(
+                Text("\(satellites.count) ACTIVE")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(.cyan.opacity(0.6)),
+                at: CGPoint(x: centerX, y: size.height - 6)
+            )
+        }
+        .frame(height: 160)
+        .background(Color.black.opacity(0.3))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.cyan.opacity(0.1), lineWidth: 0.5)
+        )
     }
 }

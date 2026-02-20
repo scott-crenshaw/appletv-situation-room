@@ -458,6 +458,142 @@ actor APIService {
         return (symbol, prices)
     }
 
+    // MARK: - Flight Tracking (OpenSky Network — no auth required)
+
+    struct FlightPosition: Identifiable {
+        let id: String // ICAO24 address
+        let callsign: String
+        let latitude: Double
+        let longitude: Double
+        let altitude: Double // meters
+        let heading: Double // degrees
+        let onGround: Bool
+    }
+
+    func fetchFlightPositions() async throws -> [FlightPosition] {
+        // OpenSky REST API - get all aircraft in a bounding box (global is too much, use CONUS + Europe)
+        let url = URL(string: "https://opensky-network.org/api/states/all?lamin=20&lomin=-130&lamax=55&lomax=50")!
+        var request = URLRequest(url: url)
+        request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+
+        let (data, _) = try await session.data(for: request)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let states = json["states"] as? [[Any]] else {
+            return []
+        }
+
+        // OpenSky state vector: [icao24, callsign, origin_country, time_position, last_contact, longitude, latitude, baro_altitude, on_ground, velocity, true_track, ...]
+        return states.prefix(500).compactMap { state -> FlightPosition? in
+            guard state.count >= 11,
+                  let icao = state[0] as? String,
+                  let lon = state[5] as? Double,
+                  let lat = state[6] as? Double else { return nil }
+
+            let callsign = (state[1] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
+            let altitude = state[7] as? Double ?? 0
+            let onGround = state[8] as? Bool ?? false
+            let heading = state[10] as? Double ?? 0
+
+            guard !onGround else { return nil } // Only show airborne aircraft
+
+            return FlightPosition(
+                id: icao,
+                callsign: callsign,
+                latitude: lat,
+                longitude: lon,
+                altitude: altitude,
+                heading: heading,
+                onGround: false
+            )
+        }
+    }
+
+    // MARK: - Satellite Positions (CelesTrak GP data — no auth required)
+
+    struct SatellitePosition: Identifiable {
+        let id: String
+        let name: String
+        let latitude: Double
+        let longitude: Double
+        let altitude: Double // km
+        let group: String
+    }
+
+    func fetchSatellitePositions() async throws -> [SatellitePosition] {
+        // Fetch active Starlink satellites (GP JSON format includes orbital elements)
+        let url = URL(string: "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=json&LIMIT=200")!
+        var request = URLRequest(url: url)
+        request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+
+        let (data, _) = try await session.data(for: request)
+        guard let entries = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+
+        let now = Date()
+        return entries.prefix(150).compactMap { entry -> SatellitePosition? in
+            guard let name = entry["OBJECT_NAME"] as? String,
+                  let noradId = entry["NORAD_CAT_ID"] as? Int,
+                  let inclination = entry["INCLINATION"] as? Double,
+                  let raan = entry["RA_OF_ASC_NODE"] as? Double,
+                  let meanAnomaly = entry["MEAN_ANOMALY"] as? Double,
+                  let meanMotion = entry["MEAN_MOTION"] as? Double else { return nil }
+
+            // Simplified position from orbital elements (not precise, but visually correct)
+            // Mean motion is revs/day, convert to current position
+            let epochStr = entry["EPOCH"] as? String ?? ""
+            let epochDate = ISO8601DateFormatter().date(from: epochStr) ?? now
+            let elapsed = now.timeIntervalSince(epochDate) / 86400.0 // days
+            let currentAnomaly = (meanAnomaly + elapsed * meanMotion * 360).truncatingRemainder(dividingBy: 360)
+
+            // Convert to lat/lon approximation
+            let argOfPerigee = (entry["ARG_OF_PERICENTER"] as? Double) ?? 0
+            let trueAnomaly = currentAnomaly * .pi / 180
+            let raanRad = raan * .pi / 180
+            let incRad = inclination * .pi / 180
+            let argRad = argOfPerigee * .pi / 180
+
+            let lat = asin(sin(incRad) * sin(trueAnomaly + argRad)) * 180 / .pi
+            let lon = (atan2(cos(incRad) * sin(trueAnomaly + argRad), cos(trueAnomaly + argRad)) + raanRad) * 180 / .pi
+            let normalizedLon = lon.truncatingRemainder(dividingBy: 360)
+            let finalLon = normalizedLon > 180 ? normalizedLon - 360 : (normalizedLon < -180 ? normalizedLon + 360 : normalizedLon)
+
+            let altitude = 550.0 // Starlink nominal altitude
+
+            return SatellitePosition(
+                id: "\(noradId)",
+                name: name,
+                latitude: lat,
+                longitude: finalLon,
+                altitude: altitude,
+                group: "Starlink"
+            )
+        }
+    }
+
+    // MARK: - Solar Flare X-ray Flux (NOAA SWPC GOES — no auth required)
+
+    func fetchSolarXrayFlux() async throws -> [(Date, Double)] {
+        let url = URL(string: "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json")!
+        let (data, _) = try await session.data(from: url)
+
+        guard let entries = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        dateFormatter.timeZone = TimeZone(identifier: "UTC")
+
+        return entries.compactMap { entry in
+            guard let timeTag = entry["time_tag"] as? String,
+                  let flux = entry["flux"] as? Double,
+                  let date = dateFormatter.date(from: timeTag),
+                  flux > 0 else { return nil }
+            return (date, flux)
+        }
+    }
+
     // MARK: - Aurora Probability (NOAA SWPC OVATION — no auth required)
 
     func fetchAuroraData() async throws -> [[Int]] {
