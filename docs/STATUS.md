@@ -1,6 +1,6 @@
 # Project Status — Mac Situation Room
 
-**Last updated:** 2026-02-20 18:00 UTC
+**Last updated:** 2026-02-20 18:15 UTC
 
 ## What Was Completed
 
@@ -13,7 +13,7 @@
 6. **Cyber & Infrastructure** — NWS severe weather alerts, NVD CVE feed, infrastructure status, NEXRAD weather radar, lightning activity map
 7. **Deep Markets** — 28-stock watchlist with sparklines, 12-sector ETF grid, crypto panel, fear/greed
 8. **Global Threat Matrix** — DEFCON estimator, multi-hazard feed, global risk gauges, conflict tracker, Doomsday Clock, flight tracking map
-9. **Air Traffic Monitor** — 60s dual-phase: local satellite view (250nm, 30s) → worldwide view (~2000 aircraft, 30s), nearby aircraft table, altitude stats, military flagging
+9. **Air Traffic Monitor** — 60s dual-phase: local satellite view (250nm, 30s) → worldwide view (~500 aircraft, 30s), nearby aircraft table, altitude stats, military flagging
 
 ### Visual Enhancements (Tier 1 — commit 567bf88)
 1. Animated rolling number counters (`.contentTransition(.numericText())`)
@@ -37,7 +37,7 @@
 - **Data source**: ADSB.lol (primary, no auth, no rate limits) with OpenSky Network fallback
 - **Dual-phase display** (60s total, double other screens):
   - Phase 1 (0-30s): Local satellite view centered on user location (250nm radius)
-  - Phase 2 (30-60s): Worldwide view with ~2000 aircraft from 3 regional ADSB.lol queries (Americas, Europe/Africa, Asia/Oceania)
+  - Phase 2 (30-60s): Worldwide view with ~500 aircraft (sampled from 3 regional ADSB.lol queries) centered on mid-Atlantic for full world coverage
   - Animated camera transition between phases (2.5s ease-in-out)
 - **Map**: MapKit satellite imagery, aircraft as heading-rotated arrows (smaller dots in global view)
 - **Table**: 20 nearest aircraft sorted by distance — callsign, registration, ICAO type, distance (nm), altitude (FL), speed (kt), heading (always shows local data)
@@ -83,8 +83,9 @@
 - All Tier 1 + Tier 2 features verified via screenshots
 - All API endpoints tested and returning real data
 - ADSB.lol returning 300+ aircraft with registration, type, military flags
-- CoreLocation working on simulator (Denver) and physical Apple TV
+- CoreLocation working on simulator (Denver) and physical Apple TV (Austin)
 - Auto-rotation, remote navigation, countdown timers all working
+- Ticker scrolling smooth after reducing annotation counts (500 global, 400 local)
 - Sparklines, heatmap, radar sweep, flight tracker, weather radar all rendering
 
 ## Known Issues
@@ -103,6 +104,9 @@
 
 ## Git History
 ```
+f675f6a Reduce aircraft annotation counts to fix ticker stutter on Apple TV
+668bd1b Center global airspace view on mid-Atlantic for full world coverage
+e25cf24 Update STATUS.md with dual-phase air traffic feature
 3caee6c Add 60s air traffic screen with local→global phase transition
 1b3f0c3 Update STATUS.md for Screen 9 and ADSB.lol migration
 92d2bb2 Switch flight feed to ADSB.lol, add satellite map overlay
