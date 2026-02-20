@@ -254,28 +254,33 @@ struct MarketTickerRow: View {
 
 struct NewsTickerRow: View {
     let headlines: [NewsItem]
-    @State private var offset: CGFloat = 0
     @State private var contentWidth: CGFloat = 0
-    @State private var containerWidth: CGFloat = 0
+    @State private var scrollStartDate: Date = .now
 
     private let scrollSpeed: CGFloat = 70
 
     var body: some View {
-        GeometryReader { geo in
-            tickerContent
-                .offset(x: offset)
-                .onAppear {
-                    containerWidth = geo.size.width
-                    startScrolling()
-                }
-                .onChange(of: headlines.count) {
-                    offset = 0
-                    startScrolling()
-                }
+        TimelineView(.animation) { timeline in
+            GeometryReader { geo in
+                tickerContent
+                    .offset(x: computeOffset(at: timeline.date, containerWidth: geo.size.width))
+            }
         }
         .frame(height: 40)
         .background(Color.white.opacity(0.03))
         .clipped()
+        .onChange(of: headlines.count) {
+            scrollStartDate = .now
+        }
+    }
+
+    private func computeOffset(at date: Date, containerWidth: CGFloat) -> CGFloat {
+        guard contentWidth > 0, containerWidth > 0 else { return containerWidth }
+        let totalDistance = containerWidth + contentWidth
+        let elapsed = CGFloat(date.timeIntervalSince(scrollStartDate))
+        let traveled = elapsed * scrollSpeed
+        let cycleTraveled = traveled.truncatingRemainder(dividingBy: totalDistance)
+        return containerWidth - cycleTraveled
     }
 
     private var tickerContent: some View {
@@ -299,25 +304,11 @@ struct NewsTickerRow: View {
         .fixedSize()
         .background(
             GeometryReader { contentGeo in
-                Color.clear.onAppear {
-                    contentWidth = contentGeo.size.width
-                }
-                .id(headlines.count)
+                Color.clear
+                    .onAppear { contentWidth = contentGeo.size.width }
+                    .onChange(of: headlines.count) { contentWidth = contentGeo.size.width }
             }
         )
-    }
-
-    private func startScrolling() {
-        guard contentWidth > 0 else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { startScrolling() }
-            return
-        }
-        let totalDistance = containerWidth + contentWidth
-        let duration = Double(totalDistance) / Double(scrollSpeed)
-        offset = containerWidth
-        withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
-            offset = -contentWidth
-        }
     }
 }
 
