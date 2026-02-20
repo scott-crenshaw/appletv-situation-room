@@ -1,10 +1,10 @@
 # Project Status — Mac Situation Room
 
-**Last updated:** 2026-02-20 09:45 UTC
+**Last updated:** 2026-02-20 17:35 UTC
 
 ## What Was Completed
 
-### Core App (8 Screens, All Working)
+### Core App (9 Screens, All Working)
 1. **Global Situation** — World map with earthquake pins + expanding rings, market sidebar, crypto, fear/greed gauge
 2. **Live Intel** — Embedded live news streams (DW, ABC, Al Jazeera, France 24, YouTube)
 3. **Markets & Economy** — US indices, commodities, crypto, VIX, fear/greed gauge, S&P 500 heatmap
@@ -13,6 +13,7 @@
 6. **Cyber & Infrastructure** — NWS severe weather alerts, NVD CVE feed, infrastructure status, NEXRAD weather radar, lightning activity map
 7. **Deep Markets** — 28-stock watchlist with sparklines, 12-sector ETF grid, crypto panel, fear/greed
 8. **Global Threat Matrix** — DEFCON estimator, multi-hazard feed, global risk gauges, conflict tracker, Doomsday Clock, flight tracking map
+9. **Air Traffic Monitor** — MapKit satellite map with aircraft overlay, nearby aircraft table (callsign, registration, type, distance, altitude, speed, heading), altitude stats, military flagging
 
 ### Visual Enhancements (Tier 1 — commit 567bf88)
 1. Animated rolling number counters (`.contentTransition(.numericText())`)
@@ -29,12 +30,21 @@
 3. Animated radar sweep with seismic blips (Threat Assessment)
 4. NEXRAD weather radar composite overlay (Cyber & Infrastructure)
 5. Satellite constellation tracker from CelesTrak data (Space)
-6. Live flight tracking map from OpenSky Network (Global Threat Matrix)
+6. Live flight tracking map from ADSB.lol (Global Threat Matrix, Air Traffic Monitor)
 7. Severe weather activity lightning visualization (Cyber & Infrastructure)
+
+### Air Traffic Monitor (commits 4ed04e3, 92d2bb2)
+- **Data source**: ADSB.lol (primary, no auth, no rate limits) with OpenSky Network fallback
+- **Map**: MapKit satellite imagery centered on user location (250nm radius), aircraft as heading-rotated arrows
+- **Table**: 20 nearest aircraft sorted by distance — callsign, registration, ICAO type, distance (nm), altitude (FL), speed (kt), heading
+- **Stats**: Total count, altitude band breakdown (LOW/MID/HIGH), military count, top aircraft types
+- **CoreLocation**: IP-based geolocation on tvOS, works in Denver and Austin
+- **Military**: Flagged with red "M" badge in table, red dots on map
 
 ### Architecture
 - **DashboardState** — Central `@MainActor ObservableObject` managing all data + auto-rotation (30s per screen)
 - **APIService** — Actor-based, fetches from 15+ free public APIs in parallel every 120s
+- **LocationManager** — CoreLocation wrapper for tvOS, provides user position for flight proximity
 - **Dual ticker bars** — Market strip + news headlines scrolling at bottom of every screen
 - **Status bar** — DEFCON level, screen name, countdown timers, UTC time at top
 - **CRT overlay** — Subtle scan lines + gradient sweep across all screens
@@ -53,7 +63,8 @@
 | NWS | api.weather.gov | US severe weather alerts |
 | NVD/NIST | services.nvd.nist.gov | Recent CVEs |
 | CelesTrak | celestrak.org | Satellite positions (Starlink) |
-| OpenSky Network | opensky-network.org | Live flight positions |
+| ADSB.lol | api.adsb.lol | Flight positions, registration, type, military flag |
+| OpenSky Network | opensky-network.org | Flight positions (fallback) |
 | Iowa Mesonet WMS | mesonet.agron.iastate.edu | NEXRAD weather radar composites |
 | BBC/CNBC/NPR/Guardian/NYT/Reuters RSS | Various | News headlines |
 
@@ -64,9 +75,11 @@
 - Device ID: `00008110-001260480A51401E`
 
 ## What's Tested
-- All 8 screens verified visually on Apple TV 4K simulator + physical Apple TV
+- All 9 screens verified visually on Apple TV 4K simulator + physical Apple TV
 - All Tier 1 + Tier 2 features verified via screenshots
 - All API endpoints tested and returning real data
+- ADSB.lol returning 300+ aircraft with registration, type, military flags
+- CoreLocation working on simulator (Denver) and physical Apple TV
 - Auto-rotation, remote navigation, countdown timers all working
 - Sparklines, heatmap, radar sweep, flight tracker, weather radar all rendering
 
@@ -76,13 +89,19 @@
 - Conflict data is hardcoded (no free conflict tracking API)
 - NVD API is rate-limited without an API key (may fail on rapid refreshes)
 - Lightning map uses weather alert count as proxy (Blitzortung API requires auth)
+- ADSB.lol is community-run with no SLA (OpenSky fallback mitigates this)
+- Ship tracking not feasible — no free, no-auth AIS API exists (see `docs/RESEARCH_flight_tracking_apis.md`)
 
 ## What's Next
 - See `docs/FEATURE_BACKLOG.md` for remaining Tier 2 items (require API keys) and Tier 3 features
 - Potential: GDACS disaster feed, sound alerts, macOS native target, user preferences persistence
+- Flight enrichment: AirLabs free tier (1,000 req/mo) could add origin/destination airports
 
 ## Git History
 ```
+92d2bb2 Switch flight feed to ADSB.lol, add satellite map overlay
+4ed04e3 Add Screen 9: Air Traffic Monitor with nearby aircraft table
+329dff0 Fix news ticker freezing after data refresh
 3e7d636 Tier 2 visual enhancements: 7 features adding live data visualizations
 567bf88 Tier 1 visual enhancements: 7 features to elevate dashboard aesthetics
 f389a8e Release 1.0: fix news ticker, upgrade video feeds, add remote navigation
@@ -105,8 +124,10 @@ SituationRoom/Sources/
 ├── Services/
 │   ├── APIService.swift         — All API fetching (actor-based)
 │   ├── DashboardState.swift     — Central state manager + timers
+│   ├── LocationManager.swift    — CoreLocation wrapper for tvOS
 │   └── RSSParser.swift          — Simple RSS XML parser
 └── Views/
+    ├── AirTrafficScreenView.swift — Screen 9: Air Traffic Monitor
     ├── CyberScreenView.swift    — Screen 6: Cyber & Infrastructure
     ├── DashboardView.swift      — Main view + StatusBar + TickerBars + CRT overlay
     ├── DeepMarketsScreenView.swift — Screen 7: Deep Markets
