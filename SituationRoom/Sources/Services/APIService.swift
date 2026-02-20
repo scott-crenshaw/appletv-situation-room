@@ -410,6 +410,78 @@ actor APIService {
         }
     }
 
+    // MARK: - Sparkline Data (Yahoo Finance v8 chart — intraday)
+
+    func fetchSparklineData(symbols: [String]) async throws -> [String: [Double]] {
+        var result: [String: [Double]] = [:]
+
+        try await withThrowingTaskGroup(of: (String, [Double])?.self) { group in
+            for symbol in symbols {
+                group.addTask {
+                    try await self.fetchSingleSparkline(symbol: symbol)
+                }
+            }
+            for try await pair in group {
+                if let (symbol, prices) = pair {
+                    result[symbol] = prices
+                }
+            }
+        }
+
+        return result
+    }
+
+    private func fetchSingleSparkline(symbol: String) async throws -> (String, [Double])? {
+        let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=5m&range=1d")!
+        var request = URLRequest(url: url)
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return nil
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let chart = json["chart"] as? [String: Any],
+              let results = chart["result"] as? [[String: Any]],
+              let result = results.first,
+              let indicators = result["indicators"] as? [String: Any],
+              let quotes = indicators["quote"] as? [[String: Any]],
+              let firstQuote = quotes.first,
+              let closes = firstQuote["close"] as? [Any] else {
+            return nil
+        }
+
+        let prices = closes.compactMap { $0 as? Double }
+        guard prices.count >= 2 else { return nil }
+        return (symbol, prices)
+    }
+
+    // MARK: - Aurora Probability (NOAA SWPC OVATION — no auth required)
+
+    func fetchAuroraData() async throws -> [[Int]] {
+        let url = URL(string: "https://services.swpc.noaa.gov/json/ovation_aurora_latest.json")!
+        let (data, _) = try await session.data(from: url)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let coords = json["coordinates"] as? [[Any]] else {
+            return []
+        }
+
+        // coords is array of [longitude, latitude, aurora_probability]
+        // Build a simplified grid: group by latitude bands for polar projection
+        // Return as [[lon, lat, probability]] integers
+        return coords.compactMap { entry in
+            guard entry.count >= 3,
+                  let lon = entry[0] as? Int,
+                  let lat = entry[1] as? Int,
+                  let prob = entry[2] as? Int,
+                  prob > 5 else { return nil } // Only include visible aurora
+            return [lon, lat, prob]
+        }
+    }
+
     // MARK: - RSS Headlines (direct fetch + parse)
 
     func fetchRSSHeadlines(from feedURL: String, source: String, category: NewsItem.NewsCategory) async throws -> [NewsItem] {

@@ -79,6 +79,8 @@ struct LargeMarketCard: View {
             Text(quote.formattedPrice)
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.8), value: quote.formattedPrice)
 
             HStack(spacing: 8) {
                 Image(systemName: quote.isPositive ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
@@ -88,10 +90,14 @@ struct LargeMarketCard: View {
                 Text(quote.formattedChange)
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundColor(quote.isPositive ? .green : .red)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.8), value: quote.formattedChange)
 
                 Text(quote.formattedPercent)
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
                     .foregroundColor(quote.isPositive ? .green : .red)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.8), value: quote.formattedPercent)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -121,9 +127,13 @@ struct CryptoCard: View {
                 Text("$\(Int(coin.currentPrice).formatted())")
                     .font(.system(size: 22, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.8), value: coin.currentPrice)
                 Text(String(format: "%+.1f%%", coin.priceChangePercentage24h))
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
                     .foregroundColor(coin.isPositive ? .green : .red)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.8), value: coin.priceChangePercentage24h)
             }
         }
         .padding(12)
@@ -166,6 +176,8 @@ struct FearGreedGauge: View {
                     Text("\(index.value)")
                         .font(.system(size: 36, weight: .bold, design: .monospaced))
                         .foregroundColor(gaugeColor)
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut(duration: 0.8), value: index.value)
                     Text(index.classification.uppercased())
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundColor(.gray)
@@ -192,6 +204,8 @@ struct VIXCard: View {
             Text(vix.formattedPrice)
                 .font(.system(size: 28, weight: .bold, design: .monospaced))
                 .foregroundColor(Double(vix.formattedPrice) ?? 0 > 25 ? .red : .yellow)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.8), value: vix.formattedPrice)
         }
         .padding(12)
         .background(Color.white.opacity(0.05))

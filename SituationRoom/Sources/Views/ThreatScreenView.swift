@@ -81,16 +81,25 @@ struct ThreatScreenView: View {
 struct EarthquakeRow: View {
     let earthquake: Earthquake
 
+    private var isRecent: Bool {
+        Date().timeIntervalSince(earthquake.time) < 3600 // less than 1 hour
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            // Magnitude badge
-            Text(earthquake.formattedMagnitude)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
-                .frame(width: 60)
-                .padding(.vertical, 6)
-                .background(magnitudeColor.opacity(0.8))
-                .cornerRadius(6)
+            // Magnitude badge with ring indicator
+            ZStack {
+                if isRecent {
+                    QuakeRingPulse(color: magnitudeColor)
+                }
+                Text(earthquake.formattedMagnitude)
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .frame(width: 60)
+                    .padding(.vertical, 6)
+                    .background(magnitudeColor.opacity(0.8))
+                    .cornerRadius(6)
+            }
 
             // Location + depth
             VStack(alignment: .leading, spacing: 2) {
@@ -220,5 +229,27 @@ struct ConflictRow: View {
                 .foregroundColor(intensityColor)
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Quake Ring Pulse (animated ring for recent earthquakes)
+
+struct QuakeRingPulse: View {
+    let color: Color
+    @State private var scale: CGFloat = 0.8
+    @State private var opacity: Double = 0.8
+
+    var body: some View {
+        Circle()
+            .stroke(color, lineWidth: 2)
+            .frame(width: 70, height: 36)
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .onAppear {
+                withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) {
+                    scale = 1.6
+                    opacity = 0
+                }
+            }
     }
 }

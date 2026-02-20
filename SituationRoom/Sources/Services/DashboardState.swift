@@ -25,6 +25,9 @@ class DashboardState: ObservableObject {
     @Published var asteroidApproaches: [AsteroidApproach] = []
     @Published var naturalEvents: [NaturalEvent] = []
 
+    // Space — Aurora
+    @Published var auroraData: [[Int]] = [] // [lon, lat, probability]
+
     // Cyber & Infrastructure
     @Published var weatherAlerts: [WeatherAlert] = []
     @Published var recentCVEs: [CVEEntry] = []
@@ -32,6 +35,7 @@ class DashboardState: ObservableObject {
     // Deep Markets
     @Published var watchlistQuotes: [MarketQuote] = []
     @Published var sectorQuotes: [MarketQuote] = []
+    @Published var sparklineData: [String: [Double]] = [:] // symbol -> intraday prices
 
     // MARK: - Configuration
 
@@ -201,6 +205,10 @@ class DashboardState: ObservableObject {
             ("https://feeds.bbci.co.uk/news/world/middle_east/rss.xml", "BBC Middle East", .geopolitics),
             ("https://www.cnbc.com/id/100003114/device/rss/rss.html", "CNBC", .markets),
             ("https://thediplomat.com/feed/", "The Diplomat", .geopolitics),
+            ("https://feeds.npr.org/1001/rss.xml", "NPR", .geopolitics),
+            ("https://www.theguardian.com/world/rss", "Guardian", .geopolitics),
+            ("https://rss.nytimes.com/services/xml/rss/nyt/World.xml", "NY Times", .geopolitics),
+            ("https://feeds.reuters.com/reuters/topNews", "Reuters", .geopolitics),
         ]
 
         var allItems: [NewsItem] = []
@@ -227,10 +235,12 @@ class DashboardState: ObservableObject {
             async let weather = APIService.shared.fetchSpaceWeather()
             async let iss = APIService.shared.fetchISSPosition()
             async let asteroids = APIService.shared.fetchAsteroidApproaches()
+            async let aurora = APIService.shared.fetchAuroraData()
 
             spaceWeather = try await weather
             issPosition = try await iss
             asteroidApproaches = try await asteroids
+            auroraData = (try? await aurora) ?? []
         } catch {
             print("[Space] Error: \(error.localizedDescription)")
         }
@@ -266,6 +276,13 @@ class DashboardState: ObservableObject {
             sectorQuotes = try await sectorTask
         } catch {
             print("[DeepMarkets] Error: \(error.localizedDescription)")
+        }
+
+        // Sparklines fetched separately so failure doesn't block quotes
+        do {
+            sparklineData = try await APIService.shared.fetchSparklineData(symbols: Array(watchlist.prefix(12)))
+        } catch {
+            print("[Sparklines] Error: \(error.localizedDescription)")
         }
     }
 

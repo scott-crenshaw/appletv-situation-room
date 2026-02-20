@@ -8,7 +8,7 @@ struct SituationScreenView: View {
     var body: some View {
         HStack(spacing: 0) {
             // Left: Map (70% width)
-            MapPanelView(regionIndex: state.currentMapRegionIndex)
+            MapPanelView(regionIndex: state.currentMapRegionIndex, earthquakes: state.earthquakes)
                 .frame(maxWidth: .infinity)
 
             // Right: Sidebar (30% width)
@@ -29,10 +29,12 @@ struct SituationScreenView: View {
 
 struct MapPanelView: View {
     let regionIndex: Int
+    let earthquakes: [Earthquake]
     @State private var mapRegion: MKCoordinateRegion
 
-    init(regionIndex: Int) {
+    init(regionIndex: Int, earthquakes: [Earthquake] = []) {
         self.regionIndex = regionIndex
+        self.earthquakes = earthquakes
         let region = mapRegions[0]
         _mapRegion = State(initialValue: MKCoordinateRegion(
             center: region.center,
@@ -40,11 +42,22 @@ struct MapPanelView: View {
         ))
     }
 
+    private var allAnnotations: [MapAnnotationItem] {
+        let hotspotItems = sampleHotspots.map { MapAnnotationItem.hotspot($0) }
+        let quakeItems = earthquakes.prefix(10).map { MapAnnotationItem.earthquake($0) }
+        return hotspotItems + quakeItems
+    }
+
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            Map(coordinateRegion: $mapRegion, annotationItems: sampleHotspots) { hotspot in
-                MapAnnotation(coordinate: hotspot.coordinate) {
-                    HotspotMarker(hotspot: hotspot)
+            Map(coordinateRegion: $mapRegion, annotationItems: allAnnotations) { item in
+                MapAnnotation(coordinate: item.coordinate) {
+                    switch item {
+                    case .hotspot(let h):
+                        HotspotMarker(hotspot: h)
+                    case .earthquake(let q):
+                        EarthquakeRingMarker(earthquake: q)
+                    }
                 }
             }
             .mapStyle(.imagery) // Satellite view for situation room feel
@@ -255,6 +268,86 @@ struct MarketRow: View {
                 Text(change)
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(isPositive ? .green : .red)
+            }
+        }
+    }
+}
+
+// MARK: - Map Annotation Item (unified enum for hotspots + earthquakes)
+
+enum MapAnnotationItem: Identifiable {
+    case hotspot(Hotspot)
+    case earthquake(Earthquake)
+
+    var id: String {
+        switch self {
+        case .hotspot(let h): return "hotspot-\(h.id)"
+        case .earthquake(let q): return "quake-\(q.id)"
+        }
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        switch self {
+        case .hotspot(let h): return h.coordinate
+        case .earthquake(let q): return CLLocationCoordinate2D(latitude: q.latitude, longitude: q.longitude)
+        }
+    }
+}
+
+// MARK: - Earthquake Ring Marker (expanding concentric rings on map)
+
+struct EarthquakeRingMarker: View {
+    let earthquake: Earthquake
+    @State private var ringScale: CGFloat = 0.5
+
+    private var ringSize: CGFloat {
+        CGFloat(earthquake.magnitude) * 4 // Scale ring by magnitude
+    }
+
+    private var depthColor: Color {
+        // Red = shallow (dangerous), blue = deep
+        switch earthquake.depth {
+        case ..<30: return .red
+        case ..<100: return .orange
+        case ..<300: return .yellow
+        default: return .blue
+        }
+    }
+
+    private var ageOpacity: Double {
+        let hours = Date().timeIntervalSince(earthquake.time) / 3600
+        return max(0.3, 1.0 - (hours / 24.0))
+    }
+
+    var body: some View {
+        ZStack {
+            // Outer expanding ring
+            Circle()
+                .stroke(depthColor.opacity(0.3 * ageOpacity), lineWidth: 1.5)
+                .frame(width: ringSize * 2.5, height: ringSize * 2.5)
+                .scaleEffect(ringScale)
+
+            // Middle ring
+            Circle()
+                .stroke(depthColor.opacity(0.5 * ageOpacity), lineWidth: 1.5)
+                .frame(width: ringSize * 1.5, height: ringSize * 1.5)
+                .scaleEffect(ringScale)
+
+            // Core dot
+            Circle()
+                .fill(depthColor.opacity(ageOpacity))
+                .frame(width: ringSize * 0.6, height: ringSize * 0.6)
+
+            // Magnitude label
+            Text(earthquake.formattedMagnitude)
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .shadow(color: .black, radius: 2)
+                .offset(y: ringSize * 1.5)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                ringScale = 1.2
             }
         }
     }

@@ -20,7 +20,7 @@ struct DeepMarketsScreenView: View {
                             GridItem(.flexible(), spacing: 8),
                         ], spacing: 8) {
                             ForEach(state.watchlistQuotes) { quote in
-                                StockTile(quote: quote)
+                                StockTile(quote: quote, sparkline: state.sparklineData[quote.symbol])
                             }
                         }
                     }
@@ -93,6 +93,7 @@ struct DeepMarketsScreenView: View {
 
 struct StockTile: View {
     let quote: MarketQuote
+    var sparkline: [Double]? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -109,10 +110,19 @@ struct StockTile: View {
             Text(quote.formattedPrice)
                 .font(.system(size: 20, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.8), value: quote.formattedPrice)
 
             Text(quote.formattedPercent)
                 .font(.system(size: 14, weight: .bold, design: .monospaced))
                 .foregroundColor(quote.isPositive ? .green : .red)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.8), value: quote.formattedPercent)
+
+            if let prices = sparkline, prices.count >= 2 {
+                SparklineView(prices: prices, isPositive: quote.isPositive)
+                    .frame(height: 20)
+            }
         }
         .padding(10)
         .background(quote.isPositive ? Color.green.opacity(0.06) : Color.red.opacity(0.06))
@@ -155,6 +165,8 @@ struct SectorCell: View {
             Text(sector.formattedPercent)
                 .font(.system(size: 18, weight: .bold, design: .monospaced))
                 .foregroundColor(sector.isPositive ? .green : .red)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.8), value: sector.formattedPercent)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
@@ -200,9 +212,13 @@ struct CryptoDetailRow: View {
                 Text("$\(formattedPrice)")
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.8), value: coin.currentPrice)
                 Text(String(format: "%+.2f%%", coin.priceChangePercentage24h))
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(coin.isPositive ? .green : .red)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.8), value: coin.priceChangePercentage24h)
             }
         }
         .padding(10)
@@ -274,6 +290,35 @@ struct CompactFearGreed: View {
         case 45..<55: return .yellow
         case 55..<75: return .green
         default: return .green
+        }
+    }
+}
+
+// MARK: - Sparkline View
+
+struct SparklineView: View {
+    let prices: [Double]
+    let isPositive: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            let minPrice = prices.min() ?? 0
+            let maxPrice = prices.max() ?? 1
+            let range = max(maxPrice - minPrice, 0.01)
+
+            Path { path in
+                for (i, price) in prices.enumerated() {
+                    let x = geo.size.width * CGFloat(i) / CGFloat(prices.count - 1)
+                    let y = geo.size.height * (1 - CGFloat((price - minPrice) / range))
+
+                    if i == 0 {
+                        path.move(to: CGPoint(x: x, y: y))
+                    } else {
+                        path.addLine(to: CGPoint(x: x, y: y))
+                    }
+                }
+            }
+            .stroke(isPositive ? Color.green.opacity(0.6) : Color.red.opacity(0.6), lineWidth: 1.5)
         }
     }
 }

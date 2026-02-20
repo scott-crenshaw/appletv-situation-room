@@ -25,6 +25,12 @@ struct SpaceScreenView: View {
                     loadingPlaceholder("Locating ISS...")
                 }
 
+                // Aurora oval visualization
+                if !state.auroraData.isEmpty {
+                    sectionHeader("AURORA PROBABILITY")
+                    AuroraOvalView(data: state.auroraData, kpIndex: state.spaceWeather?.kpIndex ?? 0)
+                }
+
                 Spacer()
             }
             .frame(maxWidth: .infinity)
@@ -124,6 +130,8 @@ struct SpaceWeatherPanel: View {
                             Text(String(format: "%.0f", weather.kpIndex))
                                 .font(.system(size: 36, weight: .bold, design: .monospaced))
                                 .foregroundColor(kpColor)
+                                .contentTransition(.numericText())
+                                .animation(.easeInOut(duration: 0.8), value: weather.kpIndex)
                             Text("Kp")
                                 .font(.system(size: 14, weight: .bold, design: .monospaced))
                                 .foregroundColor(.gray)
@@ -159,6 +167,8 @@ struct SpaceWeatherPanel: View {
             Text(value)
                 .font(.system(size: 20, weight: .bold, design: .monospaced))
                 .foregroundColor(color)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.8), value: value)
         }
     }
 
@@ -206,6 +216,8 @@ struct ISSPanel: View {
                         Text(String(format: "%.4f°", position.latitude))
                             .font(.system(size: 22, weight: .bold, design: .monospaced))
                             .foregroundColor(.white)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.8), value: position.latitude)
                     }
                     VStack(alignment: .leading) {
                         Text("LON")
@@ -214,6 +226,8 @@ struct ISSPanel: View {
                         Text(String(format: "%.4f°", position.longitude))
                             .font(.system(size: 22, weight: .bold, design: .monospaced))
                             .foregroundColor(.white)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.8), value: position.longitude)
                     }
                     VStack(alignment: .leading) {
                         Text("ALT")
@@ -381,6 +395,77 @@ struct DoomsdayClockView: View {
         }
         .padding(16)
         .background(Color.red.opacity(0.1))
+        .cornerRadius(12)
+    }
+}
+
+// MARK: - Aurora Oval View (polar projection of aurora probability)
+
+struct AuroraOvalView: View {
+    let data: [[Int]] // [lon, lat, probability]
+    let kpIndex: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let centerX = size.width / 2
+            let centerY = size.height / 2
+            let radius = min(centerX, centerY) * 0.9
+
+            // Draw polar grid
+            for r in stride(from: 0.25, through: 1.0, by: 0.25) {
+                let gridPath = Path(ellipseIn: CGRect(
+                    x: centerX - radius * r,
+                    y: centerY - radius * r,
+                    width: radius * r * 2,
+                    height: radius * r * 2
+                ))
+                context.stroke(gridPath, with: .color(.white.opacity(0.08)), lineWidth: 0.5)
+            }
+
+            // Plot aurora data points
+            let intensityScale = max(0.5, min(2.0, kpIndex / 5.0))
+            for point in data {
+                let lon = Double(point[0])
+                let lat = Double(point[1])
+                let prob = Double(point[2])
+
+                // Polar projection: latitude maps to radius (90° = center, 0° = edge)
+                // Only show northern hemisphere (lat > 0)
+                guard lat > 30 else { continue }
+                let normalizedLat = (90.0 - lat) / 60.0 // 0 at pole, 1 at lat 30
+                let r = normalizedLat * radius
+
+                // Longitude maps to angle
+                let angle = lon * .pi / 180.0 - .pi / 2 // Rotate so 0° is at top
+
+                let x = centerX + r * cos(angle)
+                let y = centerY + r * sin(angle)
+
+                let dotSize = max(2, prob / 15.0 * intensityScale)
+                let opacity = min(1.0, prob / 50.0 * intensityScale)
+
+                // Aurora color: green for low, purple for high probability
+                let color: Color = prob > 50 ? .purple : .green
+
+                let dotRect = CGRect(x: x - dotSize / 2, y: y - dotSize / 2, width: dotSize, height: dotSize)
+                context.fill(Path(ellipseIn: dotRect), with: .color(color.opacity(opacity * 0.7)))
+
+                // Glow effect
+                let glowSize = dotSize * 2.5
+                let glowRect = CGRect(x: x - glowSize / 2, y: y - glowSize / 2, width: glowSize, height: glowSize)
+                context.fill(Path(ellipseIn: glowRect), with: .color(color.opacity(opacity * 0.15)))
+            }
+
+            // Label
+            context.draw(
+                Text("N")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.gray),
+                at: CGPoint(x: centerX, y: centerY - radius - 8)
+            )
+        }
+        .frame(height: 180)
+        .background(Color.white.opacity(0.03))
         .cornerRadius(12)
     }
 }
