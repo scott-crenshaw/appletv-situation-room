@@ -15,6 +15,7 @@
 		4BCC4DECF5D05AB33FC292EC /* SituationRoom/Sources/Models/SpaceData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEF87D03F8584B7D8FEEA15 /* SituationRoom/Sources/Models/SpaceData.swift */; };
 		548ADC6D8792BA52692472DD /* SituationRoom/Sources/Services/APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */; };
 		572D303E5F93ECE2FFBC8E74 /* SituationRoom/Sources/Models/MarketData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA0CF5B13290206D761CDEF /* SituationRoom/Sources/Models/MarketData.swift */; };
+		67AB45BD8CCCF591F6710823 /* AirTrafficScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */; };
 		79EB4BDFBA17A239E1BA1236 /* CyberScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A64160B1209CD45E4CB77B /* CyberScreenView.swift */; };
 		84EA3A15426E1B06CCD1BAD9 /* SituationRoom/Sources/Views/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D7B065961088F1DE73DAE4C /* SituationRoom/Sources/Views/DashboardView.swift */; };
 		88D44DD29BDE5CE3A17E591F /* GlobalThreatMatrixView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */; };
@@ -24,11 +25,13 @@
 		B0945694D6517E2D62854D3F /* SituationRoom/Sources/App/SituationRoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9259505413E698FDC51B658 /* SituationRoom/Sources/App/SituationRoomApp.swift */; };
 		B3053AE7A33230692C65D66C /* SituationRoom/Sources/Services/DashboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4F466806BFF167F33170FE /* SituationRoom/Sources/Services/DashboardState.swift */; };
 		BE9CF45C2D2DD2CD4BEBB118 /* SituationRoom/Sources/Views/MarketsScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50197DC3490E02099990DEA5 /* SituationRoom/Sources/Views/MarketsScreenView.swift */; };
+		DD67444D8A5BC9E60A85A6D0 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE524A62A9FB7BCB08B6179C /* LocationManager.swift */; };
 		FE03414A84DEEC66A775154E /* DeepMarketsScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C26C4D1A8481098C6CCCA42A /* DeepMarketsScreenView.swift */; };
 		FF1CC9873AAF84FEB51BB574 /* SituationRoom/Sources/Views/SituationScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC51B8B60C54F9689A03AAF /* SituationRoom/Sources/Views/SituationScreenView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AirTrafficScreenView.swift; path = SituationRoom/Sources/Views/AirTrafficScreenView.swift; sourceTree = SOURCE_ROOT; };
 		2FCD6FD6A2CD8F008C9F5DFD /* SituationRoom/Sources/Models/NewsItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/NewsItem.swift; sourceTree = SOURCE_ROOT; };
 		459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GlobalThreatMatrixView.swift; path = SituationRoom/Sources/Views/GlobalThreatMatrixView.swift; sourceTree = SOURCE_ROOT; };
 		50197DC3490E02099990DEA5 /* SituationRoom/Sources/Views/MarketsScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/MarketsScreenView.swift; sourceTree = SOURCE_ROOT; };
@@ -43,6 +46,7 @@
 		BBC51B8B60C54F9689A03AAF /* SituationRoom/Sources/Views/SituationScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/SituationScreenView.swift; sourceTree = SOURCE_ROOT; };
 		C26C4D1A8481098C6CCCA42A /* DeepMarketsScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeepMarketsScreenView.swift; path = SituationRoom/Sources/Views/DeepMarketsScreenView.swift; sourceTree = SOURCE_ROOT; };
 		C2A64160B1209CD45E4CB77B /* CyberScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CyberScreenView.swift; path = SituationRoom/Sources/Views/CyberScreenView.swift; sourceTree = SOURCE_ROOT; };
+		CE524A62A9FB7BCB08B6179C /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationManager.swift; path = SituationRoom/Sources/Services/LocationManager.swift; sourceTree = SOURCE_ROOT; };
 		D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Services/APIService.swift; sourceTree = SOURCE_ROOT; };
 		D78645B3945F8009A82BD9DF /* CyberData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CyberData.swift; path = SituationRoom/Sources/Models/CyberData.swift; sourceTree = SOURCE_ROOT; };
 		F7AB720D24CDCFC1FB71B01A /* SituationRoom/Sources/Config/LiveStreams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Config/LiveStreams.swift; sourceTree = SOURCE_ROOT; };
@@ -88,6 +92,8 @@
 				C2A64160B1209CD45E4CB77B /* CyberScreenView.swift */,
 				C26C4D1A8481098C6CCCA42A /* DeepMarketsScreenView.swift */,
 				459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */,
+				CE524A62A9FB7BCB08B6179C /* LocationManager.swift */,
+				2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -223,6 +229,8 @@
 				79EB4BDFBA17A239E1BA1236 /* CyberScreenView.swift in Sources */,
 				FE03414A84DEEC66A775154E /* DeepMarketsScreenView.swift in Sources */,
 				88D44DD29BDE5CE3A17E591F /* GlobalThreatMatrixView.swift in Sources */,
+				DD67444D8A5BC9E60A85A6D0 /* LocationManager.swift in Sources */,
+				67AB45BD8CCCF591F6710823 /* AirTrafficScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -238,6 +246,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Situation Room";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Situation Room uses your location to show nearby aircraft.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -260,6 +269,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Situation Room";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Situation Room uses your location to show nearby aircraft.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

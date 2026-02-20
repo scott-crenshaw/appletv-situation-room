@@ -467,12 +467,15 @@ actor APIService {
         let longitude: Double
         let altitude: Double // meters
         let heading: Double // degrees
+        let velocity: Double // m/s
+        let originCountry: String
         let onGround: Bool
     }
 
     func fetchFlightPositions() async throws -> [FlightPosition] {
-        // OpenSky REST API - get all aircraft in a bounding box (global is too much, use CONUS + Europe)
-        let url = URL(string: "https://opensky-network.org/api/states/all?lamin=20&lomin=-130&lamax=55&lomax=50")!
+        // OpenSky REST API — wide bounding box covering Americas + Europe + Middle East
+        // Global (no bbox) returns too much data and gets rate-limited faster
+        let url = URL(string: "https://opensky-network.org/api/states/all?lamin=10&lomin=-170&lamax=70&lomax=60")!
         var request = URLRequest(url: url)
         request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
 
@@ -483,15 +486,17 @@ actor APIService {
         }
 
         // OpenSky state vector: [icao24, callsign, origin_country, time_position, last_contact, longitude, latitude, baro_altitude, on_ground, velocity, true_track, ...]
-        return states.prefix(500).compactMap { state -> FlightPosition? in
+        return states.prefix(800).compactMap { state -> FlightPosition? in
             guard state.count >= 11,
                   let icao = state[0] as? String,
                   let lon = state[5] as? Double,
                   let lat = state[6] as? Double else { return nil }
 
             let callsign = (state[1] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
+            let originCountry = (state[2] as? String) ?? ""
             let altitude = state[7] as? Double ?? 0
             let onGround = state[8] as? Bool ?? false
+            let velocity = state[9] as? Double ?? 0
             let heading = state[10] as? Double ?? 0
 
             guard !onGround else { return nil } // Only show airborne aircraft
@@ -503,6 +508,8 @@ actor APIService {
                 longitude: lon,
                 altitude: altitude,
                 heading: heading,
+                velocity: velocity,
+                originCountry: originCountry,
                 onGround: false
             )
         }

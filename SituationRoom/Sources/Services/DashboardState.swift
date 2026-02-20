@@ -33,6 +33,9 @@ class DashboardState: ObservableObject {
     // Flight tracking
     @Published var flightPositions: [APIService.FlightPosition] = []
 
+    // Location
+    let locationManager = LocationManager()
+
     // Cyber & Infrastructure
     @Published var weatherAlerts: [WeatherAlert] = []
     @Published var recentCVEs: [CVEEntry] = []
@@ -57,6 +60,7 @@ class DashboardState: ObservableObject {
         case cyber = "CYBER & INFRASTRUCTURE"
         case deepMarkets = "DEEP MARKETS"
         case globalThreats = "GLOBAL THREAT MATRIX"
+        case airTraffic = "AIR TRAFFIC MONITOR"
     }
 
     // MARK: - Timers
@@ -68,6 +72,7 @@ class DashboardState: ObservableObject {
     // MARK: - Lifecycle
 
     func startDashboard() {
+        locationManager.requestLocation()
         Task {
             await fetchAllData()
             isLoading = false

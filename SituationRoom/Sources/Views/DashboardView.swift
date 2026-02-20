@@ -35,6 +35,8 @@ struct DashboardView: View {
                             DeepMarketsScreenView(state: state)
                         case .globalThreats:
                             GlobalThreatMatrixView(state: state)
+                        case .airTraffic:
+                            AirTrafficScreenView(state: state)
                         }
                     }
                     .transition(.opacity.animation(.easeInOut(duration: 1.0)))
