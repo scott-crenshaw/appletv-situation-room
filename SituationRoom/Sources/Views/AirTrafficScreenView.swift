@@ -92,7 +92,7 @@ struct FlightMapView: View {
     private var globalPosition: MapCameraPosition {
         // Full world view — camera pulled back to show all continents
         .camera(MapCamera(
-            centerCoordinate: CLLocationCoordinate2D(latitude: 30, longitude: 20),
+            centerCoordinate: CLLocationCoordinate2D(latitude: 20, longitude: -30),
             distance: 40_000_000 // ~40,000km = full globe
         ))
     }
