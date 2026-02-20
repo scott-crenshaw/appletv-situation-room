@@ -30,3 +30,8 @@ project.save()
 **What went wrong:** Calculated wait times for auto-rotation screenshots were sometimes off, capturing the wrong screen.
 **Why:** Timer drift, data loading delays, and not accounting for the initial loading screen.
 **Rule:** For reliable screen capture, take rapid sequential screenshots (every 32s for 8 cycles) to capture all screens, rather than trying to predict exact timing for one screen.
+
+## MapKit Annotation Count vs Apple TV GPU
+**What went wrong:** 2000 SwiftUI MapKit annotation views caused jerky ticker scrolling on Apple TV.
+**Why:** Each `Annotation` in a `Map` is a full SwiftUI view. 2000 of them overwhelms the Apple TV's GPU, starving other animations (tickers) of frame budget.
+**Rule:** Cap MapKit annotations to ~500 max on Apple TV. At global zoom levels, visual density difference between 500 and 2000 is negligible with 4pt dots.
