@@ -1,6 +1,6 @@
 # Project Status — Mac Situation Room
 
-**Last updated:** 2026-02-20 17:35 UTC
+**Last updated:** 2026-02-20 18:00 UTC
 
 ## What Was Completed
 
@@ -13,7 +13,7 @@
 6. **Cyber & Infrastructure** — NWS severe weather alerts, NVD CVE feed, infrastructure status, NEXRAD weather radar, lightning activity map
 7. **Deep Markets** — 28-stock watchlist with sparklines, 12-sector ETF grid, crypto panel, fear/greed
 8. **Global Threat Matrix** — DEFCON estimator, multi-hazard feed, global risk gauges, conflict tracker, Doomsday Clock, flight tracking map
-9. **Air Traffic Monitor** — MapKit satellite map with aircraft overlay, nearby aircraft table (callsign, registration, type, distance, altitude, speed, heading), altitude stats, military flagging
+9. **Air Traffic Monitor** — 60s dual-phase: local satellite view (250nm, 30s) → worldwide view (~2000 aircraft, 30s), nearby aircraft table, altitude stats, military flagging
 
 ### Visual Enhancements (Tier 1 — commit 567bf88)
 1. Animated rolling number counters (`.contentTransition(.numericText())`)
@@ -33,16 +33,20 @@
 6. Live flight tracking map from ADSB.lol (Global Threat Matrix, Air Traffic Monitor)
 7. Severe weather activity lightning visualization (Cyber & Infrastructure)
 
-### Air Traffic Monitor (commits 4ed04e3, 92d2bb2)
+### Air Traffic Monitor (commits 4ed04e3, 92d2bb2, 3caee6c)
 - **Data source**: ADSB.lol (primary, no auth, no rate limits) with OpenSky Network fallback
-- **Map**: MapKit satellite imagery centered on user location (250nm radius), aircraft as heading-rotated arrows
-- **Table**: 20 nearest aircraft sorted by distance — callsign, registration, ICAO type, distance (nm), altitude (FL), speed (kt), heading
+- **Dual-phase display** (60s total, double other screens):
+  - Phase 1 (0-30s): Local satellite view centered on user location (250nm radius)
+  - Phase 2 (30-60s): Worldwide view with ~2000 aircraft from 3 regional ADSB.lol queries (Americas, Europe/Africa, Asia/Oceania)
+  - Animated camera transition between phases (2.5s ease-in-out)
+- **Map**: MapKit satellite imagery, aircraft as heading-rotated arrows (smaller dots in global view)
+- **Table**: 20 nearest aircraft sorted by distance — callsign, registration, ICAO type, distance (nm), altitude (FL), speed (kt), heading (always shows local data)
 - **Stats**: Total count, altitude band breakdown (LOW/MID/HIGH), military count, top aircraft types
 - **CoreLocation**: IP-based geolocation on tvOS, works in Denver and Austin
 - **Military**: Flagged with red "M" badge in table, red dots on map
 
 ### Architecture
-- **DashboardState** — Central `@MainActor ObservableObject` managing all data + auto-rotation (30s per screen)
+- **DashboardState** — Central `@MainActor ObservableObject` managing all data + auto-rotation (30s per screen, 60s for Air Traffic)
 - **APIService** — Actor-based, fetches from 15+ free public APIs in parallel every 120s
 - **LocationManager** — CoreLocation wrapper for tvOS, provides user position for flight proximity
 - **Dual ticker bars** — Market strip + news headlines scrolling at bottom of every screen
@@ -99,6 +103,8 @@
 
 ## Git History
 ```
+3caee6c Add 60s air traffic screen with local→global phase transition
+1b3f0c3 Update STATUS.md for Screen 9 and ADSB.lol migration
 92d2bb2 Switch flight feed to ADSB.lol, add satellite map overlay
 4ed04e3 Add Screen 9: Air Traffic Monitor with nearby aircraft table
 329dff0 Fix news ticker freezing after data refresh
