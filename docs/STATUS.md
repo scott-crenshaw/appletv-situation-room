@@ -1,6 +1,6 @@
 # Project Status — Mac Situation Room
 
-**Last updated:** 2026-02-20 18:15 UTC
+**Last updated:** 2026-03-09
 
 ## What Was Completed
 
@@ -73,10 +73,14 @@
 | BBC/CNBC/NPR/Guardian/NYT/Reuters RSS | Various | News headlines |
 
 ## Deployment
-- **Successfully deployed to physical Apple TV** ("Living Room") on 2026-02-20
 - Bundle ID: `com.scottcrenshaw.situationroom`
-- Signed with: Scott Crenshaw (Personal Team) — free account, expires in 7 days
-- Device ID: `00008110-001260480A51401E`
+- Signed with: Scott Crenshaw (Personal Team) — free account, expires in 7 days from deploy date
+
+| Date | Device | Location | Device ID |
+|------|--------|----------|-----------|
+| 2026-02-20 | Living Room | Austin | `00008110-001260480A51401E` |
+| 2026-03-06 | basement | Denver | `00008110-0012095E1479401E` |
+| 2026-03-09 | basement | Denver | `00008110-0012095E1479401E` |
 
 ## What's Tested
 - All 9 screens verified visually on Apple TV 4K simulator + physical Apple TV
@@ -102,8 +106,15 @@
 - Potential: GDACS disaster feed, sound alerts, macOS native target, user preferences persistence
 - Flight enrichment: AirLabs free tier (1,000 req/mo) could add origin/destination airports
 
+### Stay-Awake Mode (commit pending)
+- Disables Apple TV screensaver/sleep while app is running
+- Auto re-enables sleep after 4 hours to prevent running all night
+- Resets 4-hour timer on app foreground return
+
 ## Git History
 ```
+4f8f011 Add lesson: MapKit annotation count vs Apple TV GPU performance
+f3e2b3f Update STATUS.md with global view recentering and performance fix
 f675f6a Reduce aircraft annotation counts to fix ticker stutter on Apple TV
 668bd1b Center global airspace view on mid-Atlantic for full world coverage
 e25cf24 Update STATUS.md with dual-phase air traffic feature
