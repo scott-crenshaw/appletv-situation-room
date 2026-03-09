@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Private project docs
+docs/STATUS.md
+docs/DECISIONS.md
