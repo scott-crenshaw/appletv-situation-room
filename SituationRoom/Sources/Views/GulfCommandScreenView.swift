@@ -77,7 +77,34 @@ struct GulfCommandScreenView: View {
     }
 }
 
-// MARK: - Gulf Map View (satellite imagery with multi-layer annotations)
+// MARK: - Gulf Annotation Item (unified enum for all map markers)
+
+enum GulfAnnotationItem: Identifiable {
+    case conflict(ConflictEvent)
+    case flight(APIService.FlightPosition)
+    case satellite(APIService.SatellitePosition)
+    case hotspot(Hotspot)
+
+    var id: String {
+        switch self {
+        case .conflict(let e): return "c-\(e.id)"
+        case .flight(let f): return "f-\(f.id)"
+        case .satellite(let s): return "s-\(s.id)"
+        case .hotspot(let h): return "h-\(h.id)"
+        }
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        switch self {
+        case .conflict(let e): return CLLocationCoordinate2D(latitude: e.latitude ?? 0, longitude: e.longitude ?? 0)
+        case .flight(let f): return CLLocationCoordinate2D(latitude: f.latitude, longitude: f.longitude)
+        case .satellite(let s): return CLLocationCoordinate2D(latitude: s.latitude, longitude: s.longitude)
+        case .hotspot(let h): return h.coordinate
+        }
+    }
+}
+
+// MARK: - Gulf Map View (old MapKit API — proven on physical Apple TV)
 
 struct GulfMapView: View {
     let conflictEvents: [ConflictEvent]
@@ -85,22 +112,26 @@ struct GulfMapView: View {
     let satellites: [APIService.SatellitePosition]
     let isWidePhase: Bool
 
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var mapRegion: MKCoordinateRegion
 
-    // Phase 1: Tight view on the Persian Gulf / Strait of Hormuz
-    private var gulfPosition: MapCameraPosition {
-        .camera(MapCamera(
-            centerCoordinate: CLLocationCoordinate2D(latitude: 26.5, longitude: 52),
-            distance: 1_500_000
-        ))
-    }
+    // Phase 1: Tight on Persian Gulf
+    static let gulfRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 26.5, longitude: 52),
+        span: MKCoordinateSpan(latitudeDelta: 15, longitudeDelta: 18)
+    )
 
-    // Phase 2: Wide Middle East theater view (Red Sea → Afghanistan)
-    private var mePosition: MapCameraPosition {
-        .camera(MapCamera(
-            centerCoordinate: CLLocationCoordinate2D(latitude: 28, longitude: 45),
-            distance: 5_000_000
-        ))
+    // Phase 2: Wide Middle East theater
+    static let meRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 28, longitude: 42),
+        span: MKCoordinateSpan(latitudeDelta: 35, longitudeDelta: 45)
+    )
+
+    init(conflictEvents: [ConflictEvent], flights: [APIService.FlightPosition], satellites: [APIService.SatellitePosition], isWidePhase: Bool) {
+        self.conflictEvents = conflictEvents
+        self.flights = flights
+        self.satellites = satellites
+        self.isWidePhase = isWidePhase
+        _mapRegion = State(initialValue: GulfMapView.gulfRegion)
     }
 
     // Existing hotspots filtered to the Middle East
@@ -111,49 +142,45 @@ struct GulfMapView: View {
         }
     }
 
+    // All annotations combined into one array
+    private var allAnnotations: [GulfAnnotationItem] {
+        var items: [GulfAnnotationItem] = []
+        items.append(contentsOf: conflictEvents.filter(\.hasCoordinates).map { .conflict($0) })
+        items.append(contentsOf: flights.map { .flight($0) })
+        items.append(contentsOf: satellites.map { .satellite($0) })
+        items.append(contentsOf: meHotspots.map { .hotspot($0) })
+        return items
+    }
+
     var body: some View {
-        Map(position: $cameraPosition, interactionModes: []) {
-            // Layer 1: Geocoded conflict event markers (pulsing)
-            ForEach(conflictEvents.filter(\.hasCoordinates)) { event in
-                Annotation("", coordinate: CLLocationCoordinate2D(
-                    latitude: event.latitude!, longitude: event.longitude!
-                ), anchor: .center) {
-                    ConflictEventMarker(event: event)
+        ZStack(alignment: .topLeading) {
+            Map(coordinateRegion: $mapRegion, annotationItems: allAnnotations) { item in
+                MapAnnotation(coordinate: item.coordinate) {
+                    switch item {
+                    case .conflict(let event):
+                        ConflictEventMarker(event: event)
+                    case .flight(let flight):
+                        GulfAircraftDot(flight: flight, isWide: isWidePhase)
+                    case .satellite(let sat):
+                        SatelliteDot(satellite: sat)
+                    case .hotspot(let hotspot):
+                        MiniHotspotMarker(hotspot: hotspot)
+                    }
+                }
+            }
+            .mapStyle(.imagery)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.red.opacity(0.2), lineWidth: 1)
+            )
+            .onChange(of: isWidePhase) { _, wide in
+                withAnimation(.easeInOut(duration: 2.0)) {
+                    mapRegion = wide ? GulfMapView.meRegion : GulfMapView.gulfRegion
                 }
             }
 
-            // Layer 2: Aircraft (military highlighted)
-            ForEach(flights) { flight in
-                Annotation("", coordinate: CLLocationCoordinate2D(
-                    latitude: flight.latitude, longitude: flight.longitude
-                ), anchor: .center) {
-                    GulfAircraftDot(flight: flight, isWide: isWidePhase)
-                }
-            }
-
-            // Layer 3: Satellites overhead
-            ForEach(satellites) { sat in
-                Annotation("", coordinate: CLLocationCoordinate2D(
-                    latitude: sat.latitude, longitude: sat.longitude
-                ), anchor: .center) {
-                    SatelliteDot(satellite: sat)
-                }
-            }
-
-            // Layer 4: Strategic hotspots (bases, nuclear sites, waterways)
-            ForEach(meHotspots) { hotspot in
-                Annotation("", coordinate: hotspot.coordinate, anchor: .center) {
-                    MiniHotspotMarker(hotspot: hotspot)
-                }
-            }
-        }
-        .mapStyle(.imagery(elevation: .flat))
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.red.opacity(0.2), lineWidth: 1)
-        )
-        .overlay(alignment: .topLeading) {
+            // Phase label
             HStack(spacing: 8) {
                 Circle()
                     .fill(Color.red)
@@ -163,14 +190,6 @@ struct GulfMapView: View {
                     .foregroundColor(.red.opacity(0.7))
             }
             .padding(8)
-        }
-        .onAppear {
-            cameraPosition = gulfPosition
-        }
-        .onChange(of: isWidePhase) {
-            withAnimation(.easeInOut(duration: 2.5)) {
-                cameraPosition = isWidePhase ? mePosition : gulfPosition
-            }
         }
     }
 }
@@ -183,10 +202,10 @@ struct ConflictEventMarker: View {
 
     private var markerSize: CGFloat {
         switch event.intensity {
-        case "CRITICAL": return 20
-        case "ELEVATED": return 14
-        case "MODERATE": return 10
-        default: return 7
+        case "CRITICAL": return 26
+        case "ELEVATED": return 20
+        case "MODERATE": return 16
+        default: return 12
         }
     }
 
@@ -195,7 +214,7 @@ struct ConflictEventMarker: View {
         case "CRITICAL": return .red
         case "ELEVATED": return .orange
         case "MODERATE": return .yellow
-        default: return .yellow.opacity(0.7)
+        default: return .yellow
         }
     }
 
@@ -203,28 +222,29 @@ struct ConflictEventMarker: View {
         ZStack {
             // Outer pulse ring
             Circle()
-                .fill(markerColor.opacity(0.15))
+                .fill(markerColor.opacity(0.25))
                 .frame(width: markerSize * 2.5, height: markerSize * 2.5)
                 .scaleEffect(pulseScale)
 
             // Inner ring
             Circle()
-                .stroke(markerColor.opacity(0.5), lineWidth: 1)
+                .stroke(markerColor.opacity(0.7), lineWidth: 1.5)
                 .frame(width: markerSize * 1.5, height: markerSize * 1.5)
 
             // Core dot
             Circle()
                 .fill(markerColor)
-                .frame(width: markerSize * 0.5, height: markerSize * 0.5)
+                .frame(width: markerSize * 0.6, height: markerSize * 0.6)
+                .shadow(color: markerColor, radius: 5)
 
-            // Crosshair for critical
-            if event.intensity == "CRITICAL" {
+            // Crosshair for critical/elevated
+            if event.intensity == "CRITICAL" || event.intensity == "ELEVATED" {
                 Rectangle()
-                    .fill(markerColor.opacity(0.4))
-                    .frame(width: 1, height: markerSize * 2)
+                    .fill(markerColor.opacity(0.5))
+                    .frame(width: 1.5, height: markerSize * 2.5)
                 Rectangle()
-                    .fill(markerColor.opacity(0.4))
-                    .frame(width: markerSize * 2, height: 1)
+                    .fill(markerColor.opacity(0.5))
+                    .frame(width: markerSize * 2.5, height: 1.5)
             }
         }
         .onAppear {
@@ -243,17 +263,17 @@ struct GulfAircraftDot: View {
 
     var body: some View {
         Image(systemName: "arrowtriangle.up.fill")
-            .font(.system(size: isWide ? 3 : (flight.isMilitary ? 9 : 5)))
+            .font(.system(size: isWide ? 6 : (flight.isMilitary ? 14 : 9)))
             .foregroundColor(dotColor)
             .rotationEffect(.degrees(flight.heading))
-            .shadow(color: dotColor.opacity(0.6), radius: flight.isMilitary ? 3 : 1)
+            .shadow(color: dotColor, radius: flight.isMilitary ? 6 : 3)
     }
 
     private var dotColor: Color {
         if flight.isMilitary { return .red }
-        if flight.altitude > 33000 { return .white.opacity(0.7) }
-        if flight.altitude > 16000 { return .cyan.opacity(0.6) }
-        return .green.opacity(0.5)
+        if flight.altitude > 33000 { return .white }
+        if flight.altitude > 16000 { return .cyan }
+        return .green
     }
 }
 
@@ -261,20 +281,23 @@ struct GulfAircraftDot: View {
 
 struct SatelliteDot: View {
     let satellite: APIService.SatellitePosition
-    @State private var glowOpacity: Double = 0.3
+    @State private var glowOpacity: Double = 0.4
 
     var body: some View {
         ZStack {
+            // Outer glow
             Circle()
                 .fill(dotColor.opacity(glowOpacity))
-                .frame(width: 10, height: 10)
+                .frame(width: 20, height: 20)
+            // Core
             Circle()
                 .fill(dotColor)
-                .frame(width: 3, height: 3)
+                .frame(width: 7, height: 7)
+                .shadow(color: dotColor, radius: 4)
         }
         .onAppear {
             withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                glowOpacity = 0.7
+                glowOpacity = 0.8
             }
         }
     }
@@ -290,14 +313,15 @@ struct MiniHotspotMarker: View {
     let hotspot: Hotspot
 
     var body: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 2) {
             Image(systemName: markerIcon)
-                .font(.system(size: 8))
+                .font(.system(size: 14))
                 .foregroundColor(markerColor)
+                .shadow(color: markerColor, radius: 4)
             Text(hotspot.name)
-                .font(.system(size: 7, weight: .bold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
-                .shadow(color: .black, radius: 2)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .shadow(color: .black, radius: 3)
                 .lineLimit(1)
         }
     }
