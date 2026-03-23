@@ -47,6 +47,11 @@ class DashboardState: ObservableObject {
     @Published var sectorQuotes: [MarketQuote] = []
     @Published var sparklineData: [String: [Double]] = [:] // symbol -> intraday prices
 
+    // Gulf Command
+    @Published var conflictEvents: [ConflictEvent] = []
+    @Published var gulfFlights: [APIService.FlightPosition] = []
+    @Published var militarySatellites: [APIService.SatellitePosition] = []
+
     // MARK: - Configuration
 
     let autoRotateInterval: TimeInterval = 30 // seconds per screen
@@ -63,6 +68,7 @@ class DashboardState: ObservableObject {
         case deepMarkets = "DEEP MARKETS"
         case globalThreats = "GLOBAL THREAT MATRIX"
         case airTraffic = "AIR TRAFFIC MONITOR"
+        case gulfCommand = "PERSIAN GULF COMMAND"
     }
 
     // MARK: - Timers
@@ -95,7 +101,7 @@ class DashboardState: ObservableObject {
     /// Duration per screen — air traffic gets double time for local→global transition
     func screenDuration(for screen: DashboardScreen) -> TimeInterval {
         switch screen {
-        case .airTraffic: return 60
+        case .airTraffic, .gulfCommand: return 60
         default: return autoRotateInterval
         }
     }
@@ -194,8 +200,9 @@ class DashboardState: ObservableObject {
         async let cyberTask: () = fetchCyberData()
         async let deepMarketsTask: () = fetchDeepMarkets()
         async let flightsTask: () = fetchFlights()
+        async let gulfTask: () = fetchGulfData()
 
-        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask)
+        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask)
         lastUpdated = Date()
     }
 
@@ -348,5 +355,15 @@ class DashboardState: ObservableObject {
         } catch {
             print("[Flights] Error: \(error.localizedDescription)")
         }
+    }
+
+    private func fetchGulfData() async {
+        async let conflictsTask = APIService.shared.fetchGDELTConflictEvents()
+        async let flightsTask = APIService.shared.fetchGulfFlights()
+        async let satsTask = APIService.shared.fetchMilitarySatellites()
+
+        conflictEvents = (try? await conflictsTask) ?? []
+        gulfFlights = (try? await flightsTask) ?? []
+        militarySatellites = (try? await satsTask) ?? []
     }
 }

@@ -37,6 +37,8 @@ struct DashboardView: View {
                             GlobalThreatMatrixView(state: state)
                         case .airTraffic:
                             AirTrafficScreenView(state: state)
+                        case .gulfCommand:
+                            GulfCommandScreenView(state: state)
                         }
                     }
                     .transition(.opacity.animation(.easeInOut(duration: 1.0)))

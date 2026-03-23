@@ -16,9 +16,11 @@
 		548ADC6D8792BA52692472DD /* SituationRoom/Sources/Services/APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */; };
 		572D303E5F93ECE2FFBC8E74 /* SituationRoom/Sources/Models/MarketData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA0CF5B13290206D761CDEF /* SituationRoom/Sources/Models/MarketData.swift */; };
 		67AB45BD8CCCF591F6710823 /* AirTrafficScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */; };
+		68D24CAAA95EDEC72F0EC9C8 /* GulfCommandScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07954E9D8E1620D640C00F4F /* GulfCommandScreenView.swift */; };
 		79EB4BDFBA17A239E1BA1236 /* CyberScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A64160B1209CD45E4CB77B /* CyberScreenView.swift */; };
 		84EA3A15426E1B06CCD1BAD9 /* SituationRoom/Sources/Views/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D7B065961088F1DE73DAE4C /* SituationRoom/Sources/Views/DashboardView.swift */; };
 		88D44DD29BDE5CE3A17E591F /* GlobalThreatMatrixView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */; };
+		962C4435A7163679D4090CC1 /* ConflictData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F046DBA7824CB09AC8D8BD /* ConflictData.swift */; };
 		A12A9279760CAE1115A58EA6 /* SituationRoom/Sources/Models/NewsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FCD6FD6A2CD8F008C9F5DFD /* SituationRoom/Sources/Models/NewsItem.swift */; };
 		A3402662B987E3FA6FDFEFB1 /* SituationRoom/Sources/Views/ThreatScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBC78FBD3755D91B29826A5 /* SituationRoom/Sources/Views/ThreatScreenView.swift */; };
 		AED898395DCD4CCF8E24F890 /* SituationRoom/Sources/Views/SpaceScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2653D86F14530C07AEA874 /* SituationRoom/Sources/Views/SpaceScreenView.swift */; };
@@ -31,8 +33,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		07954E9D8E1620D640C00F4F /* GulfCommandScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GulfCommandScreenView.swift; path = SituationRoom/Sources/Views/GulfCommandScreenView.swift; sourceTree = SOURCE_ROOT; };
 		2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AirTrafficScreenView.swift; path = SituationRoom/Sources/Views/AirTrafficScreenView.swift; sourceTree = SOURCE_ROOT; };
 		2FCD6FD6A2CD8F008C9F5DFD /* SituationRoom/Sources/Models/NewsItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/NewsItem.swift; sourceTree = SOURCE_ROOT; };
+		31F046DBA7824CB09AC8D8BD /* ConflictData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConflictData.swift; path = SituationRoom/Sources/Models/ConflictData.swift; sourceTree = SOURCE_ROOT; };
 		459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GlobalThreatMatrixView.swift; path = SituationRoom/Sources/Views/GlobalThreatMatrixView.swift; sourceTree = SOURCE_ROOT; };
 		50197DC3490E02099990DEA5 /* SituationRoom/Sources/Views/MarketsScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/MarketsScreenView.swift; sourceTree = SOURCE_ROOT; };
 		5E2653D86F14530C07AEA874 /* SituationRoom/Sources/Views/SpaceScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/SpaceScreenView.swift; sourceTree = SOURCE_ROOT; };
@@ -94,6 +98,8 @@
 				459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */,
 				CE524A62A9FB7BCB08B6179C /* LocationManager.swift */,
 				2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */,
+				31F046DBA7824CB09AC8D8BD /* ConflictData.swift */,
+				07954E9D8E1620D640C00F4F /* GulfCommandScreenView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -231,6 +237,8 @@
 				88D44DD29BDE5CE3A17E591F /* GlobalThreatMatrixView.swift in Sources */,
 				DD67444D8A5BC9E60A85A6D0 /* LocationManager.swift in Sources */,
 				67AB45BD8CCCF591F6710823 /* AirTrafficScreenView.swift in Sources */,
+				962C4435A7163679D4090CC1 /* ConflictData.swift in Sources */,
+				68D24CAAA95EDEC72F0EC9C8 /* GulfCommandScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

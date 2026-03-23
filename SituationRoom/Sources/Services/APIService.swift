@@ -783,4 +783,192 @@ actor APIService {
         let (data, _) = try await session.data(for: request)
         return SimpleRSSParser.parse(data: data, source: source, category: category)
     }
+
+    // MARK: - GDELT Conflict Articles (DOC 2.0 API — no auth required)
+    // Articles are keyword-geocoded: scan titles for ME place names → approximate lat/lon
+
+    func fetchGDELTConflictEvents() async throws -> [ConflictEvent] {
+        var components = URLComponents(string: "https://api.gdeltproject.org/api/v2/doc/doc")!
+        components.queryItems = [
+            URLQueryItem(name: "query", value: "(conflict OR military OR attack OR airstrike OR missile OR strike) (Iraq OR Iran OR Syria OR Yemen OR Gaza OR Lebanon OR \"Saudi Arabia\" OR \"Red Sea\" OR Houthi OR Hezbollah) sourcelang:english"),
+            URLQueryItem(name: "mode", value: "ArtList"),
+            URLQueryItem(name: "maxrecords", value: "75"),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "timespan", value: "1440"),
+        ]
+        guard let url = components.url else { return [] }
+
+        let (data, _) = try await session.data(from: url)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let articles = json["articles"] as? [[String: Any]] else {
+            return []
+        }
+
+        // Deduplicate by title (GDELT often has same story from multiple outlets)
+        var seenTitles = Set<String>()
+
+        return articles.compactMap { article -> ConflictEvent? in
+            guard let title = article["title"] as? String,
+                  let urlStr = article["url"] as? String else { return nil }
+
+            let normalizedTitle = title.lowercased().trimmingCharacters(in: .whitespaces)
+            guard !seenTitles.contains(normalizedTitle) else { return nil }
+            seenTitles.insert(normalizedTitle)
+
+            let domain = article["domain"] as? String ?? ""
+            let seenDate = article["seendate"] as? String ?? ""
+
+            // Keyword geocoding: scan title for ME place names
+            let titleLower = title.lowercased()
+            var matchedLat: Double?
+            var matchedLon: Double?
+            var matchedName: String?
+
+            // Check most specific (cities) first, then countries
+            for loc in meLocationKeywords {
+                if titleLower.contains(loc.keyword) {
+                    matchedLat = loc.lat + Double.random(in: -0.5...0.5) // Slight jitter to avoid overlap
+                    matchedLon = loc.lon + Double.random(in: -0.5...0.5)
+                    matchedName = loc.name
+                    break
+                }
+            }
+
+            return ConflictEvent(
+                id: urlStr,
+                title: title,
+                source: domain,
+                date: seenDate,
+                url: urlStr,
+                latitude: matchedLat,
+                longitude: matchedLon,
+                matchedLocation: matchedName
+            )
+        }
+    }
+
+    // MARK: - Middle East Flight Tracking (ADSB.lol — no auth required)
+
+    func fetchGulfFlights() async throws -> [FlightPosition] {
+        // Two overlapping regions for broad ME coverage:
+        // Region 1: Persian Gulf / Arabian Peninsula (27°N, 50°E, 750nm)
+        // Region 2: Eastern Mediterranean / Levant (33°N, 37°E, 500nm)
+        let regions: [(lat: Double, lon: Double, dist: Int)] = [
+            (27, 50, 750),
+            (33, 37, 500),
+        ]
+
+        var allFlights: [String: FlightPosition] = [:]
+
+        for region in regions {
+            let urlString = "https://api.adsb.lol/v2/lat/\(region.lat)/lon/\(region.lon)/dist/\(region.dist)"
+            guard let url = URL(string: urlString) else { continue }
+            var request = URLRequest(url: url)
+            request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+
+            guard let (data, _) = try? await session.data(for: request),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let aircraft = json["ac"] as? [[String: Any]] else { continue }
+
+            for ac in aircraft {
+                guard let hex = ac["hex"] as? String,
+                      let lat = ac["lat"] as? Double,
+                      let lon = ac["lon"] as? Double else { continue }
+
+                let altBaro = ac["alt_baro"]
+                let altitude: Double
+                if let altNum = altBaro as? Double { altitude = altNum }
+                else if let altInt = altBaro as? Int { altitude = Double(altInt) }
+                else { continue }
+
+                allFlights[hex] = FlightPosition(
+                    id: hex,
+                    callsign: (ac["flight"] as? String)?.trimmingCharacters(in: .whitespaces) ?? "",
+                    registration: (ac["r"] as? String) ?? "",
+                    aircraftType: (ac["t"] as? String) ?? "",
+                    latitude: lat,
+                    longitude: lon,
+                    altitude: altitude,
+                    heading: ac["track"] as? Double ?? ac["calc_track"] as? Double ?? 0,
+                    velocity: ac["gs"] as? Double ?? 0,
+                    originCountry: "",
+                    distanceNm: ac["dst"] as? Double,
+                    isMilitary: (ac["dbFlags"] as? Int ?? 0) & 1 != 0,
+                    category: (ac["category"] as? String) ?? "",
+                    onGround: false
+                )
+            }
+        }
+
+        // Cap at 300 for GPU performance (this screen also has conflict + satellite annotations)
+        let flights = Array(allFlights.values)
+        if flights.count > 300 {
+            return Array(flights.shuffled().prefix(300))
+        }
+        return flights
+    }
+
+    // MARK: - Military & GPS Satellites (CelesTrak GP — no auth required)
+
+    func fetchMilitarySatellites() async throws -> [SatellitePosition] {
+        let groups = ["military", "gps-ops"]
+        var allSats: [SatellitePosition] = []
+
+        for group in groups {
+            guard let url = URL(string: "https://celestrak.org/NORAD/elements/gp.php?GROUP=\(group)&FORMAT=json") else { continue }
+            var request = URLRequest(url: url)
+            request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+
+            guard let (data, _) = try? await session.data(for: request),
+                  let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                continue
+            }
+
+            let now = Date()
+            let isoFormatter = ISO8601DateFormatter()
+            let nominalAlt: Double = group == "gps-ops" ? 20200 : 800
+
+            let sats = entries.prefix(120).compactMap { entry -> SatellitePosition? in
+                guard let name = entry["OBJECT_NAME"] as? String,
+                      let noradId = entry["NORAD_CAT_ID"] as? Int,
+                      let inclination = entry["INCLINATION"] as? Double,
+                      let raan = entry["RA_OF_ASC_NODE"] as? Double,
+                      let meanAnomaly = entry["MEAN_ANOMALY"] as? Double,
+                      let meanMotion = entry["MEAN_MOTION"] as? Double else { return nil }
+
+                let epochStr = entry["EPOCH"] as? String ?? ""
+                let epochDate = isoFormatter.date(from: epochStr) ?? now
+                let elapsed = now.timeIntervalSince(epochDate) / 86400.0
+                let currentAnomaly = (meanAnomaly + elapsed * meanMotion * 360).truncatingRemainder(dividingBy: 360)
+
+                let argOfPerigee = (entry["ARG_OF_PERICENTER"] as? Double) ?? 0
+                let trueAnomaly = currentAnomaly * .pi / 180
+                let raanRad = raan * .pi / 180
+                let incRad = inclination * .pi / 180
+                let argRad = argOfPerigee * .pi / 180
+
+                let lat = asin(sin(incRad) * sin(trueAnomaly + argRad)) * 180 / .pi
+                let lon = (atan2(cos(incRad) * sin(trueAnomaly + argRad), cos(trueAnomaly + argRad)) + raanRad) * 180 / .pi
+                let normalizedLon = lon.truncatingRemainder(dividingBy: 360)
+                let finalLon = normalizedLon > 180 ? normalizedLon - 360 : (normalizedLon < -180 ? normalizedLon + 360 : normalizedLon)
+
+                return SatellitePosition(
+                    id: "\(noradId)",
+                    name: name,
+                    latitude: lat,
+                    longitude: finalLon,
+                    altitude: nominalAlt,
+                    group: group == "gps-ops" ? "GPS" : "Military"
+                )
+            }
+            allSats.append(contentsOf: sats)
+        }
+
+        // Filter to satellites currently over or near the Middle East
+        return allSats.filter { sat in
+            sat.latitude >= 5 && sat.latitude <= 50 &&
+            sat.longitude >= 20 && sat.longitude <= 70
+        }
+    }
 }
