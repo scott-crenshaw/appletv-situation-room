@@ -25,6 +25,8 @@ struct DashboardView: View {
                             LiveIntelScreenView(state: state)
                         case .markets:
                             MarketsScreenView(state: state)
+                        case .portfolio:
+                            PortfolioScreenView(state: state)
                         case .threats:
                             ThreatScreenView(state: state)
                         case .space:

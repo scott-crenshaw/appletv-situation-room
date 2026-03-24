@@ -459,6 +459,43 @@ actor APIService {
         return (symbol, prices)
     }
 
+    // MARK: - Monthly Sparklines (Yahoo Finance v8 chart — 30-day daily close)
+
+    func fetchMonthlySparklines(symbols: [String]) async throws -> [String: [Double]] {
+        var result: [String: [Double]] = [:]
+
+        try await withThrowingTaskGroup(of: (String, [Double])?.self) { group in
+            for symbol in symbols {
+                group.addTask {
+                    let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+                    let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=1mo")!
+                    var request = URLRequest(url: url)
+                    request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+
+                    let (data, response) = try await self.session.data(for: request)
+                    guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else { return nil }
+
+                    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                          let chart = json["chart"] as? [String: Any],
+                          let results = chart["result"] as? [[String: Any]],
+                          let r = results.first,
+                          let indicators = r["indicators"] as? [String: Any],
+                          let quotes = indicators["quote"] as? [[String: Any]],
+                          let firstQuote = quotes.first,
+                          let closes = firstQuote["close"] as? [Any] else { return nil }
+
+                    let prices = closes.compactMap { $0 as? Double }
+                    guard prices.count >= 2 else { return nil }
+                    return (symbol, prices)
+                }
+            }
+            for try await pair in group {
+                if let (symbol, prices) = pair { result[symbol] = prices }
+            }
+        }
+        return result
+    }
+
     // MARK: - Flight Tracking (ADSB.lol primary, OpenSky fallback)
 
     struct FlightPosition: Identifiable {

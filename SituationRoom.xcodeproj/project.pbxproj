@@ -14,6 +14,7 @@
 		2B3442DD3A8ACFC3724456D5 /* SituationRoom/Sources/Views/LiveIntelScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B28EFA94CE63080C746AD57 /* SituationRoom/Sources/Views/LiveIntelScreenView.swift */; };
 		4BCC4DECF5D05AB33FC292EC /* SituationRoom/Sources/Models/SpaceData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEF87D03F8584B7D8FEEA15 /* SituationRoom/Sources/Models/SpaceData.swift */; };
 		548ADC6D8792BA52692472DD /* SituationRoom/Sources/Services/APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */; };
+		54BA484492B1BF58E32DD6E4 /* PortfolioScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B64550A1AEF33E2CF1C2A6 /* PortfolioScreenView.swift */; };
 		572D303E5F93ECE2FFBC8E74 /* SituationRoom/Sources/Models/MarketData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA0CF5B13290206D761CDEF /* SituationRoom/Sources/Models/MarketData.swift */; };
 		67AB45BD8CCCF591F6710823 /* AirTrafficScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */; };
 		68D24CAAA95EDEC72F0EC9C8 /* GulfCommandScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07954E9D8E1620D640C00F4F /* GulfCommandScreenView.swift */; };
@@ -54,6 +55,7 @@
 		D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Services/APIService.swift; sourceTree = SOURCE_ROOT; };
 		D78645B3945F8009A82BD9DF /* CyberData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CyberData.swift; path = SituationRoom/Sources/Models/CyberData.swift; sourceTree = SOURCE_ROOT; };
 		F7AB720D24CDCFC1FB71B01A /* SituationRoom/Sources/Config/LiveStreams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Config/LiveStreams.swift; sourceTree = SOURCE_ROOT; };
+		F7B64550A1AEF33E2CF1C2A6 /* PortfolioScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PortfolioScreenView.swift; path = SituationRoom/Sources/Views/PortfolioScreenView.swift; sourceTree = SOURCE_ROOT; };
 		F8A81BA7A1D078A07945BA7E /* SituationRoom/Sources/Config/Hotspots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Config/Hotspots.swift; sourceTree = SOURCE_ROOT; };
 		F9259505413E698FDC51B658 /* SituationRoom/Sources/App/SituationRoomApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/App/SituationRoomApp.swift; sourceTree = SOURCE_ROOT; };
 		FA9E5BED08A699B9D61165E5 /* SituationRoom/Sources/Services/RSSParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Services/RSSParser.swift; sourceTree = SOURCE_ROOT; };
@@ -100,6 +102,7 @@
 				2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */,
 				31F046DBA7824CB09AC8D8BD /* ConflictData.swift */,
 				07954E9D8E1620D640C00F4F /* GulfCommandScreenView.swift */,
+				F7B64550A1AEF33E2CF1C2A6 /* PortfolioScreenView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -239,6 +242,7 @@
 				67AB45BD8CCCF591F6710823 /* AirTrafficScreenView.swift in Sources */,
 				962C4435A7163679D4090CC1 /* ConflictData.swift in Sources */,
 				68D24CAAA95EDEC72F0EC9C8 /* GulfCommandScreenView.swift in Sources */,
+				54BA484492B1BF58E32DD6E4 /* PortfolioScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

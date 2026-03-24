@@ -51,6 +51,12 @@ class DashboardState: ObservableObject {
     @Published var sectorQuotes: [MarketQuote] = []
     @Published var sparklineData: [String: [Double]] = [:] // symbol -> intraday prices
 
+    // Portfolio
+    @Published var oilBenchmarks: [MarketQuote] = []           // CL=F, BZ=F
+    @Published var energyPortfolio: [MarketQuote] = []         // 13 energy stocks
+    @Published var highOilPortfolio: [MarketQuote] = []        // 5 high-oil stocks
+    @Published var portfolioSparklines: [String: [Double]] = [:] // 30-day daily close
+
     // Gulf Command
     @Published var conflictEvents: [ConflictEvent] = []
     @Published var gulfFlights: [APIService.FlightPosition] = []
@@ -66,6 +72,7 @@ class DashboardState: ObservableObject {
         case situation = "GLOBAL SITUATION"
         case liveIntel = "LIVE INTEL"
         case markets = "MARKETS & ECONOMY"
+        case portfolio = "ENERGY & OIL PORTFOLIO"
         case threats = "NATURAL THREATS"
         case space = "SPACE & GEOPHYSICAL"
         case cyber = "CYBER & INFRASTRUCTURE"
@@ -203,8 +210,9 @@ class DashboardState: ObservableObject {
         async let deepMarketsTask: () = fetchDeepMarkets()
         async let flightsTask: () = fetchFlights()
         async let gulfTask: () = fetchGulfData()
+        async let portfolioTask: () = fetchPortfolioData()
 
-        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask)
+        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask, portfolioTask)
         lastUpdated = Date()
     }
 
@@ -374,5 +382,22 @@ class DashboardState: ObservableObject {
         conflictEvents = (try? await conflictsTask) ?? []
         gulfFlights = (try? await flightsTask) ?? []
         militarySatellites = (try? await satsTask) ?? []
+    }
+
+    private func fetchPortfolioData() async {
+        let oilSymbols = ["CL=F", "BZ=F"]
+        let energySymbols = ["AES", "CEG", "CVX", "DUK", "EQT", "EXC", "LNG", "NEE", "NRG", "SO", "VST", "WMB", "XOM"]
+        let highOilSymbols = ["CCL", "DAL", "JBHT", "ODFL", "UAL"]
+        let allSymbols = oilSymbols + energySymbols + highOilSymbols
+
+        async let oilTask = APIService.shared.fetchMarketQuotes(symbols: oilSymbols)
+        async let energyTask = APIService.shared.fetchMarketQuotes(symbols: energySymbols)
+        async let highOilTask = APIService.shared.fetchMarketQuotes(symbols: highOilSymbols)
+        async let sparksTask = APIService.shared.fetchMonthlySparklines(symbols: allSymbols)
+
+        oilBenchmarks = (try? await oilTask) ?? []
+        energyPortfolio = (try? await energyTask) ?? []
+        highOilPortfolio = (try? await highOilTask) ?? []
+        portfolioSparklines = (try? await sparksTask) ?? [:]
     }
 }
