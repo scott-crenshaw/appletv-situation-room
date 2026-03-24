@@ -211,12 +211,13 @@ actor APIService {
     // MARK: - ISS Position (Open Notify — no auth required)
 
     func fetchISSPosition() async throws -> ISSPosition {
-        let url = URL(string: "http://api.open-notify.org/iss-now.json")!
+        // Primary: wheretheiss.at (HTTPS, reliable)
+        // Fallback: open-notify (HTTP, blocked by tvOS ATS)
+        let url = URL(string: "https://api.wheretheiss.at/v1/satellites/25544")!
         let (data, _) = try await session.data(from: url)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let pos = json["iss_position"] as? [String: String],
-              let latStr = pos["latitude"], let lat = Double(latStr),
-              let lonStr = pos["longitude"], let lon = Double(lonStr) else {
+              let lat = json["latitude"] as? Double,
+              let lon = json["longitude"] as? Double else {
             return ISSPosition(latitude: 0, longitude: 0, timestamp: Date())
         }
         return ISSPosition(latitude: lat, longitude: lon, timestamp: Date())

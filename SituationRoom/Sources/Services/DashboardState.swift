@@ -274,27 +274,28 @@ class DashboardState: ObservableObject {
     }
 
     private func fetchSpaceData() async {
-        do {
-            async let weather = APIService.shared.fetchSpaceWeather()
-            async let iss = APIService.shared.fetchISSPosition()
-            async let asteroids = APIService.shared.fetchAsteroidApproaches()
-            async let aurora = APIService.shared.fetchAuroraData()
+        // ALL fetches run in parallel — no cascading failures
+        async let weatherTask = APIService.shared.fetchSpaceWeather()
+        async let issTask = APIService.shared.fetchISSPosition()
+        async let asteroidsTask = APIService.shared.fetchAsteroidApproaches()
+        async let auroraTask = APIService.shared.fetchAuroraData()
+        async let xrayTask = APIService.shared.fetchSolarXrayFlux()
+        async let satsTask = APIService.shared.fetchSatellitePositions()
+        async let imgTask = APIService.shared.fetchSolarImage()
+        async let flaresTask = APIService.shared.fetchSolarFlares()
+        async let cmesTask = APIService.shared.fetchCMEs()
+        async let scalesTask = APIService.shared.fetchSpaceWeatherScales()
 
-            spaceWeather = try await weather
-            issPosition = try await iss
-            asteroidApproaches = try await asteroids
-            auroraData = (try? await aurora) ?? []
-            solarXrayFlux = (try? await APIService.shared.fetchSolarXrayFlux()) ?? []
-            satellitePositions = (try? await APIService.shared.fetchSatellitePositions()) ?? []
-
-            // DONKI + scales (separate try? so failures don't block the above)
-            solarImageData = try? await APIService.shared.fetchSolarImage()
-            solarFlares = (try? await APIService.shared.fetchSolarFlares()) ?? []
-            cmeEvents = (try? await APIService.shared.fetchCMEs()) ?? []
-            spaceWeatherScales = try? await APIService.shared.fetchSpaceWeatherScales()
-        } catch {
-            print("[Space] Error: \(error.localizedDescription)")
-        }
+        spaceWeather = try? await weatherTask
+        issPosition = try? await issTask
+        asteroidApproaches = (try? await asteroidsTask) ?? []
+        auroraData = (try? await auroraTask) ?? []
+        solarXrayFlux = (try? await xrayTask) ?? []
+        satellitePositions = (try? await satsTask) ?? []
+        solarImageData = try? await imgTask
+        solarFlares = (try? await flaresTask) ?? []
+        cmeEvents = (try? await cmesTask) ?? []
+        spaceWeatherScales = try? await scalesTask
     }
 
     private func fetchNaturalEvents() async {
