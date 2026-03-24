@@ -62,6 +62,9 @@ class DashboardState: ObservableObject {
     @Published var gulfFlights: [APIService.FlightPosition] = []
     @Published var militarySatellites: [APIService.SatellitePosition] = []
 
+    // Fire Watch
+    @Published var fireHotspots: [FireHotspot] = []
+
     // MARK: - Configuration
 
     let autoRotateInterval: TimeInterval = 30 // seconds per screen
@@ -78,6 +81,7 @@ class DashboardState: ObservableObject {
         case cyber = "CYBER & INFRASTRUCTURE"
         case airTraffic = "AIR TRAFFIC MONITOR"
         case gulfCommand = "PERSIAN GULF COMMAND"
+        case fireWatch = "GLOBAL FIRE WATCH"
     }
 
     // MARK: - Timers
@@ -212,7 +216,9 @@ class DashboardState: ObservableObject {
         async let gulfTask: () = fetchGulfData()
         async let portfolioTask: () = fetchPortfolioData()
 
-        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask, portfolioTask)
+        async let fireTask: () = fetchFireData()
+
+        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask, portfolioTask, fireTask)
         lastUpdated = Date()
     }
 
@@ -399,5 +405,13 @@ class DashboardState: ObservableObject {
         energyPortfolio = (try? await energyTask) ?? []
         highOilPortfolio = (try? await highOilTask) ?? []
         portfolioSparklines = (try? await sparksTask) ?? [:]
+    }
+
+    private func fetchFireData() async {
+        do {
+            fireHotspots = try await APIService.shared.fetchFireHotspots()
+        } catch {
+            print("[FireWatch] Error: \(error.localizedDescription)")
+        }
     }
 }

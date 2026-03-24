@@ -1151,4 +1151,90 @@ actor APIService {
             sat.longitude >= 20 && sat.longitude <= 70
         }
     }
+
+    // MARK: - Fire Hotspots (NASA FIRMS — no auth for direct CSV downloads)
+
+    func fetchFireHotspots() async throws -> [FireHotspot] {
+        // Regional CSV files — no API key needed for direct download
+        // Using VIIRS (Suomi NPP) 24-hour files, smaller than global (7MB)
+        let regions = [
+            "USA_contiguous_and_Hawaii",
+            "Europe",
+            "South_America",
+            "Central_America",
+            "South_Asia",
+            "South_East_Asia",
+            "Northern_and_Central_Africa",
+            "Southern_Africa",
+            "Russia_and_Asia",
+            "Australia_and_New_Zealand",
+        ]
+        let baseURL = "https://firms.modaps.eosdis.nasa.gov/data/active_fire/suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_"
+
+        var allHotspots: [FireHotspot] = []
+
+        await withTaskGroup(of: [FireHotspot].self) { group in
+            for region in regions {
+                group.addTask {
+                    do {
+                        let url = URL(string: "\(baseURL)\(region)_24h.csv")!
+                        let (data, _) = try await self.session.data(from: url)
+                        guard let csv = String(data: data, encoding: .utf8) else { return [] }
+                        return self.parseFireCSV(csv)
+                    } catch {
+                        print("[FIRMS] Error fetching \(region): \(error.localizedDescription)")
+                        return []
+                    }
+                }
+            }
+            for await hotspots in group {
+                allHotspots.append(contentsOf: hotspots)
+            }
+        }
+
+        // Sort by FRP descending (biggest fires first)
+        return allHotspots.sorted { $0.frp > $1.frp }
+    }
+
+    private nonisolated func parseFireCSV(_ csv: String) -> [FireHotspot] {
+        let lines = csv.components(separatedBy: "\n")
+        guard lines.count > 1 else { return [] }
+
+        // Header: latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,confidence,version,bright_ti5,frp,daynight
+        var hotspots: [FireHotspot] = []
+
+        for line in lines.dropFirst() {
+            let cols = line.components(separatedBy: ",")
+            guard cols.count >= 13 else { continue }
+
+            guard let lat = Double(cols[0]),
+                  let lon = Double(cols[1]),
+                  let brightness = Double(cols[2]),
+                  let frp = Double(cols[11]) else { continue }
+
+            let confidence: FireHotspot.FireConfidence
+            switch cols[8].trimmingCharacters(in: .whitespaces).lowercased() {
+            case "high", "h": confidence = .high
+            case "nominal", "n": confidence = .nominal
+            default: confidence = .low
+            }
+
+            let daynight = cols[12].trimmingCharacters(in: .whitespacesAndNewlines)
+
+            hotspots.append(FireHotspot(
+                id: "\(lat)_\(lon)_\(cols[5])_\(cols[6])",
+                latitude: lat,
+                longitude: lon,
+                brightness: brightness,
+                frp: frp,
+                confidence: confidence,
+                acqDate: cols[5],
+                acqTime: cols[6],
+                isDaytime: daynight == "D",
+                satellite: cols[7]
+            ))
+        }
+
+        return hotspots
+    }
 }

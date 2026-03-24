@@ -37,6 +37,8 @@ struct DashboardView: View {
                             AirTrafficScreenView(state: state)
                         case .gulfCommand:
                             GulfCommandScreenView(state: state)
+                        case .fireWatch:
+                            FireWatchScreenView(state: state)
                         }
                     }
                     .transition(.opacity.animation(.easeInOut(duration: 1.0)))

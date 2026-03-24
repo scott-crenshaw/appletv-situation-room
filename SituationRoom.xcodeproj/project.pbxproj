@@ -12,6 +12,7 @@
 		244A44B683D01224DE585CAF /* CyberData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78645B3945F8009A82BD9DF /* CyberData.swift */; };
 		289AE83178352630C58CF57B /* SituationRoom/Sources/Config/LiveStreams.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AB720D24CDCFC1FB71B01A /* SituationRoom/Sources/Config/LiveStreams.swift */; };
 		2B3442DD3A8ACFC3724456D5 /* SituationRoom/Sources/Views/LiveIntelScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B28EFA94CE63080C746AD57 /* SituationRoom/Sources/Views/LiveIntelScreenView.swift */; };
+		31A94A23A62E3D309C6785AD /* FireData.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7794DECBB10D395D018387F /* FireData.swift */; };
 		4BCC4DECF5D05AB33FC292EC /* SituationRoom/Sources/Models/SpaceData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEF87D03F8584B7D8FEEA15 /* SituationRoom/Sources/Models/SpaceData.swift */; };
 		548ADC6D8792BA52692472DD /* SituationRoom/Sources/Services/APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */; };
 		54BA484492B1BF58E32DD6E4 /* PortfolioScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B64550A1AEF33E2CF1C2A6 /* PortfolioScreenView.swift */; };
@@ -28,6 +29,7 @@
 		B0945694D6517E2D62854D3F /* SituationRoom/Sources/App/SituationRoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9259505413E698FDC51B658 /* SituationRoom/Sources/App/SituationRoomApp.swift */; };
 		B3053AE7A33230692C65D66C /* SituationRoom/Sources/Services/DashboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4F466806BFF167F33170FE /* SituationRoom/Sources/Services/DashboardState.swift */; };
 		BE9CF45C2D2DD2CD4BEBB118 /* SituationRoom/Sources/Views/MarketsScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50197DC3490E02099990DEA5 /* SituationRoom/Sources/Views/MarketsScreenView.swift */; };
+		D0FA48449BB85A3F05D946C0 /* FireWatchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78054E408453FF4989EA1D36 /* FireWatchScreenView.swift */; };
 		DD67444D8A5BC9E60A85A6D0 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE524A62A9FB7BCB08B6179C /* LocationManager.swift */; };
 		FE03414A84DEEC66A775154E /* DeepMarketsScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C26C4D1A8481098C6CCCA42A /* DeepMarketsScreenView.swift */; };
 		FF1CC9873AAF84FEB51BB574 /* SituationRoom/Sources/Views/SituationScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC51B8B60C54F9689A03AAF /* SituationRoom/Sources/Views/SituationScreenView.swift */; };
@@ -41,6 +43,7 @@
 		459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GlobalThreatMatrixView.swift; path = SituationRoom/Sources/Views/GlobalThreatMatrixView.swift; sourceTree = SOURCE_ROOT; };
 		50197DC3490E02099990DEA5 /* SituationRoom/Sources/Views/MarketsScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/MarketsScreenView.swift; sourceTree = SOURCE_ROOT; };
 		5E2653D86F14530C07AEA874 /* SituationRoom/Sources/Views/SpaceScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/SpaceScreenView.swift; sourceTree = SOURCE_ROOT; };
+		78054E408453FF4989EA1D36 /* FireWatchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FireWatchScreenView.swift; path = SituationRoom/Sources/Views/FireWatchScreenView.swift; sourceTree = SOURCE_ROOT; };
 		7DEF87D03F8584B7D8FEEA15 /* SituationRoom/Sources/Models/SpaceData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/SpaceData.swift; sourceTree = SOURCE_ROOT; };
 		8BA0CF5B13290206D761CDEF /* SituationRoom/Sources/Models/MarketData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/MarketData.swift; sourceTree = SOURCE_ROOT; };
 		8D4F466806BFF167F33170FE /* SituationRoom/Sources/Services/DashboardState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Services/DashboardState.swift; sourceTree = SOURCE_ROOT; };
@@ -54,6 +57,7 @@
 		CE524A62A9FB7BCB08B6179C /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationManager.swift; path = SituationRoom/Sources/Services/LocationManager.swift; sourceTree = SOURCE_ROOT; };
 		D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Services/APIService.swift; sourceTree = SOURCE_ROOT; };
 		D78645B3945F8009A82BD9DF /* CyberData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CyberData.swift; path = SituationRoom/Sources/Models/CyberData.swift; sourceTree = SOURCE_ROOT; };
+		E7794DECBB10D395D018387F /* FireData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FireData.swift; path = SituationRoom/Sources/Models/FireData.swift; sourceTree = SOURCE_ROOT; };
 		F7AB720D24CDCFC1FB71B01A /* SituationRoom/Sources/Config/LiveStreams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Config/LiveStreams.swift; sourceTree = SOURCE_ROOT; };
 		F7B64550A1AEF33E2CF1C2A6 /* PortfolioScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PortfolioScreenView.swift; path = SituationRoom/Sources/Views/PortfolioScreenView.swift; sourceTree = SOURCE_ROOT; };
 		F8A81BA7A1D078A07945BA7E /* SituationRoom/Sources/Config/Hotspots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Config/Hotspots.swift; sourceTree = SOURCE_ROOT; };
@@ -115,6 +119,7 @@
 				BBC51B8B60C54F9689A03AAF /* SituationRoom/Sources/Views/SituationScreenView.swift */,
 				5E2653D86F14530C07AEA874 /* SituationRoom/Sources/Views/SpaceScreenView.swift */,
 				9BBC78FBD3755D91B29826A5 /* SituationRoom/Sources/Views/ThreatScreenView.swift */,
+				78054E408453FF4989EA1D36 /* FireWatchScreenView.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -143,6 +148,7 @@
 				8BA0CF5B13290206D761CDEF /* SituationRoom/Sources/Models/MarketData.swift */,
 				2FCD6FD6A2CD8F008C9F5DFD /* SituationRoom/Sources/Models/NewsItem.swift */,
 				7DEF87D03F8584B7D8FEEA15 /* SituationRoom/Sources/Models/SpaceData.swift */,
+				E7794DECBB10D395D018387F /* FireData.swift */,
 			);
 			name = Models;
 			sourceTree = "<group>";
@@ -243,6 +249,8 @@
 				962C4435A7163679D4090CC1 /* ConflictData.swift in Sources */,
 				68D24CAAA95EDEC72F0EC9C8 /* GulfCommandScreenView.swift in Sources */,
 				54BA484492B1BF58E32DD6E4 /* PortfolioScreenView.swift in Sources */,
+				31A94A23A62E3D309C6785AD /* FireData.swift in Sources */,
+				D0FA48449BB85A3F05D946C0 /* FireWatchScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -262,6 +270,10 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/SituationRoom/Sources/Models",
+					"$(SRCROOT)/SituationRoom/Sources/Views",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scottcrenshaw.situationroom;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -285,6 +297,10 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/SituationRoom/Sources/Models",
+					"$(SRCROOT)/SituationRoom/Sources/Views",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scottcrenshaw.situationroom;
 				PRODUCT_NAME = "$(TARGET_NAME)";
