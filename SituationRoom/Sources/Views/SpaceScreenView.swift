@@ -7,8 +7,8 @@ struct SpaceScreenView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Left column: Space Weather + ISS
-            VStack(spacing: 16) {
+            // Left column: Space Weather + Solar Image + ISS
+            VStack(spacing: 12) {
                 sectionHeader("SOLAR WEATHER")
 
                 if let sw = state.spaceWeather {
@@ -17,34 +17,55 @@ struct SpaceScreenView: View {
                     loadingPlaceholder("Connecting to NOAA SWPC...")
                 }
 
-                sectionHeader("ISS TRACKER")
+                // Live solar image (SUVI 195Å EUV)
+                if let imgData = state.solarImageData, let uiImage = UIImage(data: imgData) {
+                    sectionHeader("SOLAR IMAGERY — SUVI 195Å")
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxHeight: 220)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                        )
+                }
 
+                sectionHeader("ISS TRACKER")
                 if let iss = state.issPosition {
                     ISSPanel(position: iss)
                 } else {
                     loadingPlaceholder("Locating ISS...")
                 }
 
-                // Aurora oval visualization
-                if !state.auroraData.isEmpty {
-                    sectionHeader("AURORA PROBABILITY")
-                    AuroraOvalView(data: state.auroraData, kpIndex: state.spaceWeather?.kpIndex ?? 0)
-                }
-
                 Spacer()
             }
             .frame(maxWidth: .infinity)
 
-            // Center column: Solar Flux + Asteroid Approaches
-            VStack(spacing: 16) {
+            // Center column: Solar Events + Near-Earth Objects
+            VStack(spacing: 12) {
                 // Solar X-ray flux chart
                 if !state.solarXrayFlux.isEmpty {
                     sectionHeader("GOES X-RAY FLUX (24H)")
                     SolarFlareChartView(data: state.solarXrayFlux)
                 }
 
-                sectionHeader("NEAR-EARTH OBJECTS")
+                // DONKI Solar Flares + CMEs
+                if !state.solarFlares.isEmpty || !state.cmeEvents.isEmpty {
+                    sectionHeader("SOLAR ACTIVITY — 7 DAY")
+                    ScrollView {
+                        VStack(spacing: 6) {
+                            ForEach(state.solarFlares.prefix(6)) { flare in
+                                SolarFlareRow(flare: flare)
+                            }
+                            ForEach(state.cmeEvents.prefix(4)) { cme in
+                                CMERow(cme: cme)
+                            }
+                        }
+                    }
+                }
 
+                sectionHeader("NEAR-EARTH OBJECTS")
                 if state.asteroidApproaches.isEmpty {
                     loadingPlaceholder("Querying JPL SBDB...")
                 } else {
@@ -61,21 +82,32 @@ struct SpaceScreenView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Right column: Starlink + Doomsday Clock
-            VStack(spacing: 16) {
+            // Right column: 3-Day Forecast + Aurora + Starlink + Doomsday
+            VStack(spacing: 12) {
+                // Space Weather Scales (3-day forecast)
+                if let scales = state.spaceWeatherScales {
+                    sectionHeader("SPACE WEATHER OUTLOOK")
+                    SpaceWeatherForecastPanel(scales: scales)
+                }
+
+                // Aurora oval
+                if !state.auroraData.isEmpty {
+                    sectionHeader("AURORA PROBABILITY")
+                    AuroraOvalView(data: state.auroraData, kpIndex: state.spaceWeather?.kpIndex ?? 0)
+                }
+
                 // Satellite constellation
                 if !state.satellitePositions.isEmpty {
                     sectionHeader("STARLINK CONSTELLATION")
                     SatelliteConstellationView(satellites: state.satellitePositions)
                 }
 
-                // Doomsday Clock
                 sectionHeader("DOOMSDAY CLOCK")
                 DoomsdayClockView()
 
                 Spacer()
             }
-            .frame(width: 380)
+            .frame(width: 400)
         }
         .padding(24)
     }
@@ -612,5 +644,183 @@ struct SatelliteConstellationView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.cyan.opacity(0.1), lineWidth: 0.5)
         )
+    }
+}
+
+// MARK: - Solar Flare Row (DONKI)
+
+struct SolarFlareRow: View {
+    let flare: SolarFlare
+
+    private var flareColor: Color {
+        switch flare.classLetter {
+        case "X": return .red
+        case "M": return .orange
+        case "C": return .yellow
+        default: return .green
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(flare.classType)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(flareColor)
+                .frame(width: 55, alignment: .leading)
+
+            Image(systemName: "sun.max.fill")
+                .font(.system(size: 12))
+                .foregroundColor(flareColor)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("FLARE \(flare.sourceLocation)")
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                Text(timeAgo(flare.beginTime))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+
+            if let region = flare.activeRegionNum {
+                Text("AR\(region)")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.cyan.opacity(0.7))
+            }
+        }
+        .padding(8)
+        .background(flareColor.opacity(0.06))
+        .cornerRadius(6)
+    }
+
+    private func timeAgo(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 3600 { return "\(Int(interval / 60))m ago" }
+        if interval < 86400 { return "\(Int(interval / 3600))h ago" }
+        return "\(Int(interval / 86400))d ago"
+    }
+}
+
+// MARK: - CME Row (DONKI)
+
+struct CMERow: View {
+    let cme: CMEEvent
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("CME")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(.purple)
+                .frame(width: 55, alignment: .leading)
+
+            Image(systemName: "burst.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.purple)
+
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 8) {
+                    if let speed = cme.speed {
+                        Text("\(Int(speed)) km/s")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                    }
+                    if cme.isEarthDirected {
+                        Text("EARTH-DIRECTED")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.red.opacity(0.2))
+                            .cornerRadius(3)
+                    }
+                }
+                Text(timeAgo(cme.startTime))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+        }
+        .padding(8)
+        .background(Color.purple.opacity(0.06))
+        .cornerRadius(6)
+    }
+
+    private func timeAgo(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 3600 { return "\(Int(interval / 60))m ago" }
+        if interval < 86400 { return "\(Int(interval / 3600))h ago" }
+        return "\(Int(interval / 86400))d ago"
+    }
+}
+
+// MARK: - Space Weather Forecast Panel (NOAA Scales 3-day)
+
+struct SpaceWeatherForecastPanel: View {
+    let scales: SpaceWeatherScales
+
+    var body: some View {
+        VStack(spacing: 10) {
+            // Current conditions
+            HStack(spacing: 16) {
+                scaleIndicator("RADIO", scale: scales.current.radio, prefix: "R")
+                scaleIndicator("SOLAR", scale: scales.current.solar, prefix: "S")
+                scaleIndicator("GEOMAG", scale: scales.current.geomag, prefix: "G")
+            }
+
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 1)
+
+            // 3-day forecast
+            HStack(spacing: 0) {
+                Text("3-DAY:")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.gray)
+                    .frame(width: 60, alignment: .leading)
+
+                forecastDay("TODAY", forecast: scales.today)
+                forecastDay("TMW", forecast: scales.tomorrow)
+                forecastDay("+2D", forecast: scales.dayAfter)
+            }
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(8)
+    }
+
+    private func scaleIndicator(_ label: String, scale: Int, prefix: String) -> some View {
+        VStack(spacing: 2) {
+            Text("\(prefix)\(scale)")
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundColor(scaleColor(scale))
+            Text(label)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func forecastDay(_ label: String, forecast: SpaceWeatherScales.ForecastSet) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(.gray)
+            Text("G\(forecast.geomagScale)")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(scaleColor(forecast.geomagScale))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func scaleColor(_ scale: Int) -> Color {
+        switch scale {
+        case 0: return .green
+        case 1: return .yellow
+        case 2: return .orange
+        case 3...4: return .red
+        default: return .red
+        }
     }
 }

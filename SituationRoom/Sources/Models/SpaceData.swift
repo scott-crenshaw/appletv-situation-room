@@ -50,6 +50,60 @@ struct AsteroidApproach: Identifiable {
     }
 }
 
+/// NASA DONKI solar flare event
+struct SolarFlare: Identifiable {
+    let id: String
+    let classType: String      // "M1.3", "X2.1", "C5.0"
+    let beginTime: Date
+    let peakTime: Date?
+    let sourceLocation: String // "S14E10"
+    let activeRegionNum: Int?
+
+    var classLetter: String { String(classType.prefix(1)) }
+
+    var flareColor: String {
+        switch classLetter {
+        case "X": return "red"
+        case "M": return "orange"
+        case "C": return "yellow"
+        default: return "green"
+        }
+    }
+}
+
+/// NASA DONKI coronal mass ejection
+struct CMEEvent: Identifiable {
+    let id: String
+    let startTime: Date
+    let sourceLocation: String?
+    let speed: Double?          // km/s
+    let halfAngle: Double?      // degrees
+    let isEarthDirected: Bool
+    let note: String
+}
+
+/// NOAA SWPC space weather scales (R/S/G) — current + 3-day forecast
+struct SpaceWeatherScales {
+    let timestamp: Date
+    let current: ScaleSet       // Right now
+    let today: ForecastSet      // Remaining today
+    let tomorrow: ForecastSet   // Tomorrow
+    let dayAfter: ForecastSet   // Day after tomorrow
+
+    struct ScaleSet {
+        let radio: Int          // R0-R5
+        let solar: Int          // S0-S5
+        let geomag: Int         // G0-G5
+    }
+
+    struct ForecastSet {
+        let radioMinorProb: Int? // % chance of R1-R2
+        let radioMajorProb: Int? // % chance of R3+
+        let solarProb: Int?      // % chance of S1+
+        let geomagScale: Int     // predicted G scale
+    }
+}
+
 /// NASA EONET natural event
 struct NaturalEvent: Identifiable {
     let id: String

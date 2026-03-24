@@ -774,6 +774,148 @@ actor APIService {
         }
     }
 
+    // MARK: - Solar Image (NOAA SWPC SUVI — no auth required)
+
+    func fetchSolarImage() async throws -> Data {
+        // SUVI 195Å channel — classic green sun EUV view (equivalent to SDO AIA 0193)
+        let url = URL(string: "https://services.swpc.noaa.gov/images/animations/suvi/primary/195/latest.png")!
+        var request = URLRequest(url: url)
+        request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+        let (data, _) = try await session.data(for: request)
+        return data
+    }
+
+    // MARK: - NASA DONKI Solar Flares (DEMO_KEY — no registration required)
+
+    func fetchSolarFlares() async throws -> [SolarFlare] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        let endDate = formatter.string(from: Date())
+        let startDate = formatter.string(from: Date().addingTimeInterval(-7 * 86400))
+
+        guard let url = URL(string: "https://api.nasa.gov/DONKI/FLR?startDate=\(startDate)&endDate=\(endDate)&api_key=DEMO_KEY") else { return [] }
+        let (data, _) = try await session.data(from: url)
+
+        guard let entries = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallback = ISO8601DateFormatter()
+
+        return entries.compactMap { entry -> SolarFlare? in
+            guard let flrID = entry["flrID"] as? String,
+                  let classType = entry["classType"] as? String,
+                  let beginStr = entry["beginTime"] as? String else { return nil }
+
+            let beginTime = isoFormatter.date(from: beginStr) ?? fallback.date(from: beginStr) ?? Date()
+            let peakStr = entry["peakTime"] as? String
+            let peakTime = peakStr.flatMap { isoFormatter.date(from: $0) ?? fallback.date(from: $0) }
+            let sourceLocation = entry["sourceLocation"] as? String ?? ""
+            let regionNum = entry["activeRegionNum"] as? Int
+
+            return SolarFlare(
+                id: flrID, classType: classType, beginTime: beginTime,
+                peakTime: peakTime, sourceLocation: sourceLocation, activeRegionNum: regionNum
+            )
+        }
+        .sorted { $0.beginTime > $1.beginTime }
+    }
+
+    // MARK: - NASA DONKI CMEs (DEMO_KEY — no registration required)
+
+    func fetchCMEs() async throws -> [CMEEvent] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        let endDate = formatter.string(from: Date())
+        let startDate = formatter.string(from: Date().addingTimeInterval(-7 * 86400))
+
+        guard let url = URL(string: "https://api.nasa.gov/DONKI/CME?startDate=\(startDate)&endDate=\(endDate)&api_key=DEMO_KEY") else { return [] }
+        let (data, _) = try await session.data(from: url)
+
+        guard let entries = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallback = ISO8601DateFormatter()
+
+        return entries.compactMap { entry -> CMEEvent? in
+            guard let activityID = entry["activityID"] as? String,
+                  let startStr = entry["startTime"] as? String else { return nil }
+
+            let startTime = isoFormatter.date(from: startStr) ?? fallback.date(from: startStr) ?? Date()
+            let sourceLocation = entry["sourceLocation"] as? String
+            let note = entry["note"] as? String ?? ""
+
+            // Extract speed and earth-directed status from the most accurate analysis
+            var speed: Double?
+            var halfAngle: Double?
+            var isEarthDirected = false
+
+            if let analyses = entry["cmeAnalyses"] as? [[String: Any]] {
+                let best = analyses.first(where: { $0["isMostAccurate"] as? Bool == true }) ?? analyses.first
+                speed = best?["speed"] as? Double
+                halfAngle = best?["halfAngle"] as? Double
+
+                if let enlilList = best?["enlilList"] as? [[String: Any]] {
+                    isEarthDirected = enlilList.contains { $0["isEarthGB"] as? Bool == true }
+                }
+            }
+
+            return CMEEvent(
+                id: activityID, startTime: startTime, sourceLocation: sourceLocation,
+                speed: speed, halfAngle: halfAngle, isEarthDirected: isEarthDirected, note: String(note.prefix(200))
+            )
+        }
+        .sorted { $0.startTime > $1.startTime }
+    }
+
+    // MARK: - NOAA SWPC Space Weather Scales (no auth required)
+
+    func fetchSpaceWeatherScales() async throws -> SpaceWeatherScales {
+        let url = URL(string: "https://services.swpc.noaa.gov/products/noaa-scales.json")!
+        let (data, _) = try await session.data(from: url)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return SpaceWeatherScales(timestamp: Date(), current: .init(radio: 0, solar: 0, geomag: 0),
+                                      today: .init(radioMinorProb: nil, radioMajorProb: nil, solarProb: nil, geomagScale: 0),
+                                      tomorrow: .init(radioMinorProb: nil, radioMajorProb: nil, solarProb: nil, geomagScale: 0),
+                                      dayAfter: .init(radioMinorProb: nil, radioMajorProb: nil, solarProb: nil, geomagScale: 0))
+        }
+
+        func parseScale(_ obj: [String: Any]?, key: String) -> Int {
+            guard let cat = obj?[key] as? [String: Any],
+                  let scaleStr = cat["Scale"] as? String,
+                  let scale = Int(scaleStr) else { return 0 }
+            return scale
+        }
+
+        func parseForecast(_ obj: [String: Any]?) -> SpaceWeatherScales.ForecastSet {
+            let r = obj?["R"] as? [String: Any]
+            let s = obj?["S"] as? [String: Any]
+            let g = obj?["G"] as? [String: Any]
+            return SpaceWeatherScales.ForecastSet(
+                radioMinorProb: (r?["MinorProb"] as? String).flatMap(Int.init),
+                radioMajorProb: (r?["MajorProb"] as? String).flatMap(Int.init),
+                solarProb: (s?["Prob"] as? String).flatMap(Int.init),
+                geomagScale: (g?["Scale"] as? String).flatMap(Int.init) ?? 0
+            )
+        }
+
+        let current = json["0"] as? [String: Any]
+        return SpaceWeatherScales(
+            timestamp: Date(),
+            current: SpaceWeatherScales.ScaleSet(
+                radio: parseScale(current, key: "R"),
+                solar: parseScale(current, key: "S"),
+                geomag: parseScale(current, key: "G")
+            ),
+            today: parseForecast(json["1"] as? [String: Any]),
+            tomorrow: parseForecast(json["2"] as? [String: Any]),
+            dayAfter: parseForecast(json["3"] as? [String: Any])
+        )
+    }
+
     // MARK: - RSS Headlines (direct fetch + parse)
 
     func fetchRSSHeadlines(from feedURL: String, source: String, category: NewsItem.NewsCategory) async throws -> [NewsItem] {

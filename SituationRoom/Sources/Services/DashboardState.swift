@@ -30,6 +30,10 @@ class DashboardState: ObservableObject {
     @Published var auroraData: [[Int]] = [] // [lon, lat, probability]
     @Published var solarXrayFlux: [(Date, Double)] = [] // time, flux
     @Published var satellitePositions: [APIService.SatellitePosition] = []
+    @Published var solarImageData: Data?
+    @Published var solarFlares: [SolarFlare] = []
+    @Published var cmeEvents: [CMEEvent] = []
+    @Published var spaceWeatherScales: SpaceWeatherScales?
 
     // Flight tracking
     @Published var flightPositions: [APIService.FlightPosition] = []
@@ -282,6 +286,12 @@ class DashboardState: ObservableObject {
             auroraData = (try? await aurora) ?? []
             solarXrayFlux = (try? await APIService.shared.fetchSolarXrayFlux()) ?? []
             satellitePositions = (try? await APIService.shared.fetchSatellitePositions()) ?? []
+
+            // DONKI + scales (separate try? so failures don't block the above)
+            solarImageData = try? await APIService.shared.fetchSolarImage()
+            solarFlares = (try? await APIService.shared.fetchSolarFlares()) ?? []
+            cmeEvents = (try? await APIService.shared.fetchCMEs()) ?? []
+            spaceWeatherScales = try? await APIService.shared.fetchSpaceWeatherScales()
         } catch {
             print("[Space] Error: \(error.localizedDescription)")
         }
