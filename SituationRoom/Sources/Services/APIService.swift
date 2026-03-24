@@ -1285,6 +1285,105 @@ actor APIService {
         }
     }
 
+    // MARK: - Maritime AIS (Finnish Digitraffic — no auth)
+
+    struct MaritimeVessel: Identifiable {
+        let id: String            // MMSI
+        let name: String
+        let shipType: Int
+        let latitude: Double
+        let longitude: Double
+        let sog: Double           // Speed over ground
+        let cog: Double           // Course over ground
+        let heading: Double
+        let navStatus: Int
+        let destination: String
+        let timestamp: Date
+
+        var shipTypeText: String {
+            switch shipType {
+            case 35: return "MILITARY"
+            case 60...69: return "PASSENGER"
+            case 70...79: return "CARGO"
+            case 80...89: return "TANKER"
+            case 30: return "FISHING"
+            case 51: return "SAR"
+            default: return "OTHER"
+            }
+        }
+
+        var isMoving: Bool { sog > 0.5 }
+    }
+
+    func fetchMaritimeVessels() async throws -> [MaritimeVessel] {
+        // Fetch positions (GeoJSON) — Baltic Sea area
+        let posURL = URL(string: "https://meri.digitraffic.fi/api/ais/v1/locations")!
+        let (posData, _) = try await session.data(from: posURL)
+
+        guard let posJson = try JSONSerialization.jsonObject(with: posData) as? [String: Any],
+              let features = posJson["features"] as? [[String: Any]] else {
+            return []
+        }
+
+        // Parse positions — filter to last 1 hour only
+        let oneHourAgo = Date().addingTimeInterval(-3600).timeIntervalSince1970 * 1000
+        var positions: [String: (lat: Double, lon: Double, sog: Double, cog: Double,
+                                  heading: Double, navStat: Int, timestamp: Date)] = [:]
+
+        for feature in features {
+            guard let props = feature["properties"] as? [String: Any],
+                  let mmsi = props["mmsi"] as? Int,
+                  let ts = props["timestampExternal"] as? Double,
+                  ts > oneHourAgo,
+                  let geometry = feature["geometry"] as? [String: Any],
+                  let coords = geometry["coordinates"] as? [Double],
+                  coords.count >= 2 else { continue }
+
+            positions[String(mmsi)] = (
+                lat: coords[1], lon: coords[0],
+                sog: props["sog"] as? Double ?? 0,
+                cog: props["cog"] as? Double ?? 0,
+                heading: props["heading"] as? Double ?? 0,
+                navStat: props["navStat"] as? Int ?? 15,
+                timestamp: Date(timeIntervalSince1970: ts / 1000)
+            )
+        }
+
+        // Fetch vessel metadata
+        let vesselURL = URL(string: "https://meri.digitraffic.fi/api/ais/v1/vessels")!
+        let (vesselData, _) = try await session.data(from: vesselURL)
+
+        var vessels: [String: (name: String, shipType: Int, destination: String)] = [:]
+        if let vesselArray = try JSONSerialization.jsonObject(with: vesselData) as? [[String: Any]] {
+            for v in vesselArray {
+                guard let mmsi = v["mmsi"] as? Int else { continue }
+                vessels[String(mmsi)] = (
+                    name: (v["name"] as? String) ?? "UNKNOWN",
+                    shipType: v["shipType"] as? Int ?? 0,
+                    destination: (v["destination"] as? String) ?? ""
+                )
+            }
+        }
+
+        // Join positions + metadata, take first 600 for performance
+        return positions.prefix(600).compactMap { mmsi, pos -> MaritimeVessel? in
+            let info = vessels[mmsi]
+            return MaritimeVessel(
+                id: mmsi,
+                name: info?.name ?? "UNKNOWN",
+                shipType: info?.shipType ?? 0,
+                latitude: pos.lat,
+                longitude: pos.lon,
+                sog: pos.sog,
+                cog: pos.cog,
+                heading: pos.heading,
+                navStatus: pos.navStat,
+                destination: info?.destination ?? "",
+                timestamp: pos.timestamp
+            )
+        }
+    }
+
     private nonisolated func parseFireCSV(_ csv: String) -> [FireHotspot] {
         let lines = csv.components(separatedBy: "\n")
         guard lines.count > 1 else { return [] }

@@ -32,8 +32,10 @@
 		B3053AE7A33230692C65D66C /* SituationRoom/Sources/Services/DashboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4F466806BFF167F33170FE /* SituationRoom/Sources/Services/DashboardState.swift */; };
 		B718410385AB43B0687EF14D /* InfrastructureData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66674789972EB2A790879954 /* InfrastructureData.swift */; };
 		BE9CF45C2D2DD2CD4BEBB118 /* SituationRoom/Sources/Views/MarketsScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50197DC3490E02099990DEA5 /* SituationRoom/Sources/Views/MarketsScreenView.swift */; };
+		C3B245DD974711F4473AD612 /* MaritimeScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC045BBB246C00B65ADBF40 /* MaritimeScreenView.swift */; };
 		D0FA48449BB85A3F05D946C0 /* FireWatchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78054E408453FF4989EA1D36 /* FireWatchScreenView.swift */; };
 		DD67444D8A5BC9E60A85A6D0 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE524A62A9FB7BCB08B6179C /* LocationManager.swift */; };
+		E9ED42BDA7A9150485944149 /* MaritimeData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3849D4816934FBA34085CC /* MaritimeData.swift */; };
 		FE03414A84DEEC66A775154E /* DeepMarketsScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C26C4D1A8481098C6CCCA42A /* DeepMarketsScreenView.swift */; };
 		FF1CC9873AAF84FEB51BB574 /* SituationRoom/Sources/Views/SituationScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC51B8B60C54F9689A03AAF /* SituationRoom/Sources/Views/SituationScreenView.swift */; };
 /* End PBXBuildFile section */
@@ -45,12 +47,14 @@
 		2FCD6FD6A2CD8F008C9F5DFD /* SituationRoom/Sources/Models/NewsItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/NewsItem.swift; sourceTree = SOURCE_ROOT; };
 		31F046DBA7824CB09AC8D8BD /* ConflictData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConflictData.swift; path = SituationRoom/Sources/Models/ConflictData.swift; sourceTree = SOURCE_ROOT; };
 		38884FD78C52A8BA73338C4A /* DigitalInfraScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DigitalInfraScreenView.swift; path = SituationRoom/Sources/Views/DigitalInfraScreenView.swift; sourceTree = SOURCE_ROOT; };
+		3C3849D4816934FBA34085CC /* MaritimeData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MaritimeData.swift; path = SituationRoom/Sources/Models/MaritimeData.swift; sourceTree = SOURCE_ROOT; };
 		459C4AD6AD50E1FD63A0AD9E /* GlobalThreatMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GlobalThreatMatrixView.swift; path = SituationRoom/Sources/Views/GlobalThreatMatrixView.swift; sourceTree = SOURCE_ROOT; };
 		50197DC3490E02099990DEA5 /* SituationRoom/Sources/Views/MarketsScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/MarketsScreenView.swift; sourceTree = SOURCE_ROOT; };
 		5E2653D86F14530C07AEA874 /* SituationRoom/Sources/Views/SpaceScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/SpaceScreenView.swift; sourceTree = SOURCE_ROOT; };
 		66674789972EB2A790879954 /* InfrastructureData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = InfrastructureData.swift; path = SituationRoom/Sources/Models/InfrastructureData.swift; sourceTree = SOURCE_ROOT; };
 		78054E408453FF4989EA1D36 /* FireWatchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FireWatchScreenView.swift; path = SituationRoom/Sources/Views/FireWatchScreenView.swift; sourceTree = SOURCE_ROOT; };
 		7DEF87D03F8584B7D8FEEA15 /* SituationRoom/Sources/Models/SpaceData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/SpaceData.swift; sourceTree = SOURCE_ROOT; };
+		7FC045BBB246C00B65ADBF40 /* MaritimeScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MaritimeScreenView.swift; path = SituationRoom/Sources/Views/MaritimeScreenView.swift; sourceTree = SOURCE_ROOT; };
 		8BA0CF5B13290206D761CDEF /* SituationRoom/Sources/Models/MarketData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/MarketData.swift; sourceTree = SOURCE_ROOT; };
 		8D4F466806BFF167F33170FE /* SituationRoom/Sources/Services/DashboardState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Services/DashboardState.swift; sourceTree = SOURCE_ROOT; };
 		8D7B065961088F1DE73DAE4C /* SituationRoom/Sources/Views/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Views/DashboardView.swift; sourceTree = SOURCE_ROOT; };
@@ -128,6 +132,7 @@
 				78054E408453FF4989EA1D36 /* FireWatchScreenView.swift */,
 				38884FD78C52A8BA73338C4A /* DigitalInfraScreenView.swift */,
 				030E41E68758AB550BFA589F /* ElectronicWarfareScreenView.swift */,
+				7FC045BBB246C00B65ADBF40 /* MaritimeScreenView.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -158,6 +163,7 @@
 				7DEF87D03F8584B7D8FEEA15 /* SituationRoom/Sources/Models/SpaceData.swift */,
 				E7794DECBB10D395D018387F /* FireData.swift */,
 				66674789972EB2A790879954 /* InfrastructureData.swift */,
+				3C3849D4816934FBA34085CC /* MaritimeData.swift */,
 			);
 			name = Models;
 			sourceTree = "<group>";
@@ -263,6 +269,8 @@
 				B718410385AB43B0687EF14D /* InfrastructureData.swift in Sources */,
 				7AC147EFA826A1BFE750C0C5 /* DigitalInfraScreenView.swift in Sources */,
 				A356417EBDD13B91BF6E4F80 /* ElectronicWarfareScreenView.swift in Sources */,
+				C3B245DD974711F4473AD612 /* MaritimeScreenView.swift in Sources */,
+				E9ED42BDA7A9150485944149 /* MaritimeData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
