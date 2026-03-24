@@ -7,46 +7,18 @@ struct CyberScreenView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Left column: Severe Weather Alerts
-            VStack(spacing: 16) {
-                sectionHeader("SEVERE WEATHER ALERTS — US")
-
-                if state.weatherAlerts.isEmpty {
-                    loadingPlaceholder("Querying NWS API...")
-                } else {
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            ForEach(state.weatherAlerts.prefix(12)) { alert in
-                                WeatherAlertRow(alert: alert)
-                            }
-                        }
-                    }
-                }
-
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-
-            // Center column: Infrastructure Status + CVE Summary
+            // Left column: Infrastructure Status + Threat Landscape
             VStack(spacing: 16) {
                 sectionHeader("INFRASTRUCTURE STATUS")
-
                 InfraStatusPanel()
 
                 sectionHeader("THREAT LANDSCAPE")
-
                 ThreatLandscapePanel(
                     alertCount: state.weatherAlerts.count,
                     criticalCVEs: state.recentCVEs.filter { $0.severity == "CRITICAL" }.count,
                     highCVEs: state.recentCVEs.filter { $0.severity == "HIGH" }.count,
                     totalCVEs: state.recentCVEs.count
                 )
-
-                sectionHeader("NEXRAD WEATHER RADAR")
-                WeatherRadarView()
-
-                sectionHeader("SEVERE WEATHER ACTIVITY")
-                LightningMapView(alertCount: state.weatherAlerts.count)
 
                 Spacer()
             }
@@ -57,11 +29,11 @@ struct CyberScreenView: View {
                 sectionHeader("RECENT CVEs — 7 DAY")
 
                 if state.recentCVEs.isEmpty {
-                    loadingPlaceholder("Fetching MITRE CVE data...")
+                    loadingPlaceholder("Fetching NVD data...")
                 } else {
                     ScrollView {
                         VStack(spacing: 8) {
-                            ForEach(state.recentCVEs.prefix(10)) { cve in
+                            ForEach(state.recentCVEs.prefix(15)) { cve in
                                 CVERow(cve: cve)
                             }
                         }
@@ -70,7 +42,7 @@ struct CyberScreenView: View {
 
                 Spacer()
             }
-            .frame(width: 420)
+            .frame(width: 500)
         }
         .padding(24)
     }

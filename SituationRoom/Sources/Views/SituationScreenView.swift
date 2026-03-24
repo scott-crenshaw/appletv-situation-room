@@ -7,20 +7,14 @@ struct SituationScreenView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left: Map (70% width)
+            // Left: Map (75% width)
             MapPanelView(regionIndex: state.currentMapRegionIndex, earthquakes: state.earthquakes)
                 .frame(maxWidth: .infinity)
 
-            // Right: Sidebar (30% width)
-            VStack(spacing: 12) {
-                MarketSidebarView(
-                    quotes: state.marketQuotes,
-                    crypto: state.cryptoPrices,
-                    fearGreed: state.fearGreed
-                )
-            }
-            .frame(width: 450)
-            .background(Color.white.opacity(0.03))
+            // Right: Threat summary sidebar
+            ThreatSummarySidebar(state: state)
+                .frame(width: 420)
+                .background(Color.white.opacity(0.03))
         }
     }
 }
@@ -175,61 +169,96 @@ struct HotspotMarker: View {
     }
 }
 
-// MARK: - Market Sidebar
+// MARK: - Threat Summary Sidebar (replaces market sidebar — markets are on the ticker + dedicated screen)
 
-struct MarketSidebarView: View {
-    let quotes: [MarketQuote]
-    let crypto: [CryptoPrice]
-    let fearGreed: FearGreedIndex?
+struct ThreatSummarySidebar: View {
+    @ObservedObject var state: DashboardState
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
-                // Section: Indices
-                sectionHeader("US INDICES")
-                ForEach(quotes.filter { $0.symbol.hasPrefix("^") && $0.symbol != "^VIX" }) { quote in
-                    MarketRow(symbol: quote.symbol, name: quote.name, price: quote.formattedPrice, change: quote.formattedPercent, isPositive: quote.isPositive)
-                }
-
-                // Section: Commodities
-                sectionHeader("COMMODITIES")
-                ForEach(quotes.filter { !$0.symbol.hasPrefix("^") }) { quote in
-                    MarketRow(symbol: quote.symbol, name: quote.name, price: quote.formattedPrice, change: quote.formattedPercent, isPositive: quote.isPositive)
-                }
-
-                // VIX
-                if let vix = quotes.first(where: { $0.symbol == "^VIX" }) {
-                    sectionHeader("VOLATILITY")
-                    MarketRow(symbol: "VIX", name: "Fear Index", price: vix.formattedPrice, change: vix.formattedPercent, isPositive: !vix.isPositive) // VIX: down is good
-                }
-
-                // Section: Crypto
-                sectionHeader("CRYPTO")
-                ForEach(crypto) { coin in
-                    MarketRow(
-                        symbol: coin.symbol,
-                        name: coin.name,
-                        price: String(format: "$%.0f", coin.currentPrice),
-                        change: String(format: "%+.1f%%", coin.priceChangePercentage24h),
-                        isPositive: coin.isPositive
-                    )
-                }
-
-                // Fear & Greed
-                if let fg = fearGreed {
-                    sectionHeader("MARKET SENTIMENT")
-                    HStack {
-                        Text("\(fg.value)")
-                            .font(.system(size: 36, weight: .bold, design: .monospaced))
-                            .foregroundColor(fg.value < 25 ? .red : fg.value < 45 ? .orange : fg.value < 55 ? .yellow : .green)
-                        VStack(alignment: .leading) {
-                            Text(fg.classification.uppercased())
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                .foregroundColor(.white)
-                            Text("Fear & Greed Index")
-                                .font(.system(size: 12, design: .monospaced))
+                // DEFCON
+                HStack(spacing: 12) {
+                    Text("DEFCON \(state.defconLevel)")
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
+                        .foregroundColor(defconColor)
+                    Spacer()
+                    if let vix = state.marketQuotes.first(where: { $0.symbol == "^VIX" }) {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("VIX")
+                                .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(.gray)
+                            Text(vix.formattedPrice)
+                                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                .foregroundColor(vix.price > 25 ? .red : .yellow)
                         }
+                    }
+                    if let fg = state.fearGreed {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("F&G")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(.gray)
+                            Text("\(fg.value)")
+                                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                .foregroundColor(fg.value < 25 ? .red : fg.value < 45 ? .orange : .green)
+                        }
+                    }
+                }
+                .padding(12)
+                .background(defconColor.opacity(0.1))
+                .cornerRadius(8)
+
+                // Recent Earthquakes
+                sectionHeader("RECENT EARTHQUAKES (\(state.earthquakes.count))")
+                ForEach(state.earthquakes.prefix(6)) { quake in
+                    HStack(spacing: 8) {
+                        Text(quake.formattedMagnitude)
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .frame(width: 40)
+                            .padding(.vertical, 3)
+                            .background(quakeMagColor(quake.magnitude).opacity(0.8))
+                            .cornerRadius(4)
+                        Text(quake.place)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                }
+
+                // Natural Events
+                if !state.naturalEvents.isEmpty {
+                    sectionHeader("NATURAL EVENTS (\(state.naturalEvents.count))")
+                    ForEach(state.naturalEvents.prefix(5)) { event in
+                        HStack(spacing: 8) {
+                            Image(systemName: event.categoryIcon)
+                                .font(.system(size: 14))
+                                .foregroundColor(.orange)
+                                .frame(width: 20)
+                            Text(event.title)
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.8))
+                                .lineLimit(1)
+                            Spacer()
+                        }
+                    }
+                }
+
+                // Top Headlines
+                sectionHeader("THREAT FEEDS")
+                ForEach(state.headlines.prefix(8)) { item in
+                    HStack(spacing: 6) {
+                        Text("■")
+                            .font(.system(size: 6))
+                            .foregroundColor(.red)
+                        Text(item.source.uppercased())
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.orange)
+                        Text(item.title)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
                     }
                 }
             }
@@ -237,39 +266,24 @@ struct MarketSidebarView: View {
         }
     }
 
+    private var defconColor: Color {
+        switch state.defconLevel {
+        case 1, 2: return .red
+        case 3: return .orange
+        case 4: return .yellow
+        default: return .green
+        }
+    }
+
+    private func quakeMagColor(_ mag: Double) -> Color {
+        mag >= 6 ? .red : mag >= 5 ? .orange : .yellow
+    }
+
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 14, weight: .heavy, design: .monospaced))
+            .font(.system(size: 13, weight: .heavy, design: .monospaced))
             .foregroundColor(.gray)
             .padding(.top, 4)
-    }
-}
-
-struct MarketRow: View {
-    let symbol: String
-    let name: String
-    let price: String
-    let change: String
-    let isPositive: Bool
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(price)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white)
-                Text(change)
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(isPositive ? .green : .red)
-            }
-        }
     }
 }
 

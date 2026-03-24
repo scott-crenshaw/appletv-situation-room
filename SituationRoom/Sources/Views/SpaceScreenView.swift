@@ -35,34 +35,14 @@ struct SpaceScreenView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Center column: Natural Events
+            // Center column: Solar Flux + Asteroid Approaches
             VStack(spacing: 16) {
-                sectionHeader("NATURAL EVENTS — ACTIVE")
-
-                if state.naturalEvents.isEmpty {
-                    loadingPlaceholder("Fetching NASA EONET...")
-                } else {
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            ForEach(state.naturalEvents) { event in
-                                NaturalEventRow(event: event)
-                            }
-                        }
-                    }
-                }
-
                 // Solar X-ray flux chart
                 if !state.solarXrayFlux.isEmpty {
                     sectionHeader("GOES X-RAY FLUX (24H)")
                     SolarFlareChartView(data: state.solarXrayFlux)
                 }
 
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-
-            // Right column: Asteroid Approaches
-            VStack(spacing: 16) {
                 sectionHeader("NEAR-EARTH OBJECTS")
 
                 if state.asteroidApproaches.isEmpty {
@@ -77,6 +57,12 @@ struct SpaceScreenView: View {
                     }
                 }
 
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+
+            // Right column: Starlink + Doomsday Clock
+            VStack(spacing: 16) {
                 // Satellite constellation
                 if !state.satellitePositions.isEmpty {
                     sectionHeader("STARLINK CONSTELLATION")

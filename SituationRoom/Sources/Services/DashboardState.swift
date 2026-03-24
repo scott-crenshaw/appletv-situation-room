@@ -62,11 +62,9 @@ class DashboardState: ObservableObject {
         case situation = "GLOBAL SITUATION"
         case liveIntel = "LIVE INTEL"
         case markets = "MARKETS & ECONOMY"
-        case threats = "THREAT ASSESSMENT"
+        case threats = "NATURAL THREATS"
         case space = "SPACE & GEOPHYSICAL"
         case cyber = "CYBER & INFRASTRUCTURE"
-        case deepMarkets = "DEEP MARKETS"
-        case globalThreats = "GLOBAL THREAT MATRIX"
         case airTraffic = "AIR TRAFFIC MONITOR"
         case gulfCommand = "PERSIAN GULF COMMAND"
     }

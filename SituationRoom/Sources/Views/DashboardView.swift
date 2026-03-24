@@ -31,10 +31,6 @@ struct DashboardView: View {
                             SpaceScreenView(state: state)
                         case .cyber:
                             CyberScreenView(state: state)
-                        case .deepMarkets:
-                            DeepMarketsScreenView(state: state)
-                        case .globalThreats:
-                            GlobalThreatMatrixView(state: state)
                         case .airTraffic:
                             AirTrafficScreenView(state: state)
                         case .gulfCommand:
@@ -105,7 +101,7 @@ struct StatusBarView: View {
 
             // Current screen label
             Text(state.currentScreen.rawValue)
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
 
             Spacer()

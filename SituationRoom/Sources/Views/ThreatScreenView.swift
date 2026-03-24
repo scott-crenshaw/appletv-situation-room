@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Threat Assessment screen — earthquakes, theater posture, instability.
+/// Natural Threats screen — earthquakes, severe weather, natural events.
+/// All real-time data, no hardcoded static content.
 struct ThreatScreenView: View {
     @ObservedObject var state: DashboardState
 
     var body: some View {
         HStack(spacing: 16) {
-            // Left: Earthquake list
+            // Left: Earthquake list + Seismic Radar
             VStack(alignment: .leading, spacing: 8) {
                 sectionHeader("EARTHQUAKES (24H, M4.5+)", count: state.earthquakes.count)
 
@@ -18,8 +19,37 @@ struct ThreatScreenView: View {
                 } else {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 8) {
-                            ForEach(state.earthquakes.prefix(15)) { quake in
+                            ForEach(state.earthquakes.prefix(12)) { quake in
                                 EarthquakeRow(earthquake: quake)
+                            }
+                        }
+                    }
+                }
+
+                // Seismic radar
+                if !state.earthquakes.isEmpty {
+                    sectionHeader("SEISMIC RADAR", count: nil)
+                    RadarSweepView(earthquakes: state.earthquakes)
+                }
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+
+            // Center: Severe Weather Alerts (moved from Cyber screen)
+            VStack(alignment: .leading, spacing: 8) {
+                sectionHeader("SEVERE WEATHER — US", count: state.weatherAlerts.count)
+
+                if state.weatherAlerts.isEmpty {
+                    Text("No active severe weather alerts")
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundColor(.gray)
+                        .padding(.top, 20)
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 8) {
+                            ForEach(state.weatherAlerts.prefix(12)) { alert in
+                                WeatherAlertRow(alert: alert)
                             }
                         }
                     }
@@ -29,36 +59,28 @@ struct ThreatScreenView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Right: Theater posture + hotspot summary
-            VStack(alignment: .leading, spacing: 16) {
-                sectionHeader("STRATEGIC THEATER POSTURE", count: nil)
+            // Right: Natural Events (moved from Space screen)
+            VStack(alignment: .leading, spacing: 8) {
+                sectionHeader("NATURAL EVENTS — ACTIVE", count: state.naturalEvents.count)
 
-                // Static theater posture cards (no free API available for real-time theater data)
-                TheaterCard(name: "Iran Theater", status: "CRITICAL", airActivity: 2, seaActivity: 29, trend: "stable")
-                TheaterCard(name: "Baltic Theater", status: "CRITICAL", airActivity: 18, seaActivity: 148, trend: "stable")
-                TheaterCard(name: "Taiwan Strait", status: "ELEVATED", airActivity: 8, seaActivity: 42, trend: "increasing")
-                TheaterCard(name: "Korean Peninsula", status: "MONITORING", airActivity: 4, seaActivity: 12, trend: "stable")
-
-                sectionHeader("ACTIVE CONFLICTS", count: nil)
-
-                // Conflict summary from hotspots
-                VStack(spacing: 6) {
-                    ConflictRow(name: "Ukraine-Russia", status: "ACTIVE", intensity: "High")
-                    ConflictRow(name: "Gaza", status: "ACTIVE", intensity: "Critical")
-                    ConflictRow(name: "Sudan", status: "ACTIVE", intensity: "High")
-                    ConflictRow(name: "Myanmar", status: "ACTIVE", intensity: "High")
-                    ConflictRow(name: "Sahel Region", status: "ACTIVE", intensity: "Elevated")
-                }
-
-                // Radar sweep
-                if !state.earthquakes.isEmpty {
-                    sectionHeader("SEISMIC RADAR", count: nil)
-                    RadarSweepView(earthquakes: state.earthquakes)
+                if state.naturalEvents.isEmpty {
+                    Text("No active natural events")
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundColor(.gray)
+                        .padding(.top, 20)
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 8) {
+                            ForEach(state.naturalEvents) { event in
+                                NaturalEventRow(event: event)
+                            }
+                        }
+                    }
                 }
 
                 Spacer()
             }
-            .frame(width: 500)
+            .frame(width: 480)
         }
         .padding(24)
     }

@@ -6,9 +6,8 @@ struct MarketsScreenView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Left column: Market indices + commodities
-            VStack(spacing: 16) {
-                // Major indices — big cards
+            // Left column: Indices + Commodities
+            VStack(spacing: 12) {
                 sectionHeader("US MARKET INDICES")
                 HStack(spacing: 12) {
                     ForEach(state.marketQuotes.filter { ["^GSPC", "^DJI", "^IXIC"].contains($0.symbol) }) { quote in
@@ -16,7 +15,6 @@ struct MarketsScreenView: View {
                     }
                 }
 
-                // Commodities
                 sectionHeader("COMMODITIES")
                 HStack(spacing: 12) {
                     ForEach(state.marketQuotes.filter { !$0.symbol.hasPrefix("^") }) { quote in
@@ -24,7 +22,7 @@ struct MarketsScreenView: View {
                     }
                 }
 
-                // Stock heatmap
+                // S&P 500 heatmap
                 if !state.watchlistQuotes.isEmpty {
                     sectionHeader("S&P 500 HEATMAP")
                     StockHeatmapView(quotes: state.watchlistQuotes)
@@ -34,20 +32,24 @@ struct MarketsScreenView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Right column: Crypto + Sentiment
-            VStack(spacing: 16) {
+            // Right column: Sectors + Crypto + Sentiment
+            VStack(spacing: 12) {
+                // Sector ETF performance (merged from Deep Markets)
+                if !state.sectorQuotes.isEmpty {
+                    sectionHeader("SECTOR PERFORMANCE")
+                    SectorHeatmap(sectors: state.sectorQuotes)
+                }
+
                 sectionHeader("CRYPTO")
                 ForEach(state.cryptoPrices) { coin in
                     CryptoCard(coin: coin)
                 }
 
-                // Fear & Greed gauge
                 if let fg = state.fearGreed {
                     sectionHeader("MARKET SENTIMENT")
                     FearGreedGauge(index: fg)
                 }
 
-                // VIX
                 if let vix = state.marketQuotes.first(where: { $0.symbol == "^VIX" }) {
                     sectionHeader("VOLATILITY INDEX")
                     VIXCard(vix: vix)
@@ -55,7 +57,7 @@ struct MarketsScreenView: View {
 
                 Spacer()
             }
-            .frame(width: 400)
+            .frame(width: 420)
         }
         .padding(24)
     }
