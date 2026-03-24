@@ -92,6 +92,7 @@ class DashboardState: ObservableObject {
         case digitalInfra = "DIGITAL INFRASTRUCTURE"
         case electronicWarfare = "ELECTRONIC WARFARE"
         case maritime = "MARITIME SURVEILLANCE"
+        case satelliteOrbits = "SATELLITE ORBITS"
     }
 
     // MARK: - Timers

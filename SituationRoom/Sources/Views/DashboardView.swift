@@ -45,6 +45,8 @@ struct DashboardView: View {
                             ElectronicWarfareScreenView(state: state)
                         case .maritime:
                             MaritimeScreenView(state: state)
+                        case .satelliteOrbits:
+                            SatelliteOrbitsScreenView(state: state)
                         }
                     }
                     .transition(.opacity.animation(.easeInOut(duration: 1.0)))

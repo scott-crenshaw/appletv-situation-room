@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		06E7EAE3235FB516E2AB1E61 /* SituationRoom/Sources/Services/RSSParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E5BED08A699B9D61165E5 /* SituationRoom/Sources/Services/RSSParser.swift */; };
 		0820B800A5ADDF2C685DFA27 /* SituationRoom/Sources/Config/Hotspots.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8A81BA7A1D078A07945BA7E /* SituationRoom/Sources/Config/Hotspots.swift */; };
+		0DE14E0F9392C96EE952CB97 /* SatelliteOrbitsScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDAC434AA9FFDB05DE1AA25E /* SatelliteOrbitsScreenView.swift */; };
 		244A44B683D01224DE585CAF /* CyberData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78645B3945F8009A82BD9DF /* CyberData.swift */; };
 		289AE83178352630C58CF57B /* SituationRoom/Sources/Config/LiveStreams.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AB720D24CDCFC1FB71B01A /* SituationRoom/Sources/Config/LiveStreams.swift */; };
 		2B3442DD3A8ACFC3724456D5 /* SituationRoom/Sources/Views/LiveIntelScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B28EFA94CE63080C746AD57 /* SituationRoom/Sources/Views/LiveIntelScreenView.swift */; };
@@ -68,6 +69,7 @@
 		D6DC98EA30BF40BAECB7F11C /* SituationRoom/Sources/Services/APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Services/APIService.swift; sourceTree = SOURCE_ROOT; };
 		D78645B3945F8009A82BD9DF /* CyberData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CyberData.swift; path = SituationRoom/Sources/Models/CyberData.swift; sourceTree = SOURCE_ROOT; };
 		E7794DECBB10D395D018387F /* FireData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FireData.swift; path = SituationRoom/Sources/Models/FireData.swift; sourceTree = SOURCE_ROOT; };
+		EDAC434AA9FFDB05DE1AA25E /* SatelliteOrbitsScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SatelliteOrbitsScreenView.swift; path = SituationRoom/Sources/Views/SatelliteOrbitsScreenView.swift; sourceTree = SOURCE_ROOT; };
 		F7AB720D24CDCFC1FB71B01A /* SituationRoom/Sources/Config/LiveStreams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Config/LiveStreams.swift; sourceTree = SOURCE_ROOT; };
 		F7B64550A1AEF33E2CF1C2A6 /* PortfolioScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PortfolioScreenView.swift; path = SituationRoom/Sources/Views/PortfolioScreenView.swift; sourceTree = SOURCE_ROOT; };
 		F8A81BA7A1D078A07945BA7E /* SituationRoom/Sources/Config/Hotspots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Config/Hotspots.swift; sourceTree = SOURCE_ROOT; };
@@ -133,6 +135,7 @@
 				38884FD78C52A8BA73338C4A /* DigitalInfraScreenView.swift */,
 				030E41E68758AB550BFA589F /* ElectronicWarfareScreenView.swift */,
 				7FC045BBB246C00B65ADBF40 /* MaritimeScreenView.swift */,
+				EDAC434AA9FFDB05DE1AA25E /* SatelliteOrbitsScreenView.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -271,6 +274,7 @@
 				A356417EBDD13B91BF6E4F80 /* ElectronicWarfareScreenView.swift in Sources */,
 				C3B245DD974711F4473AD612 /* MaritimeScreenView.swift in Sources */,
 				E9ED42BDA7A9150485944149 /* MaritimeData.swift in Sources */,
+				0DE14E0F9392C96EE952CB97 /* SatelliteOrbitsScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
