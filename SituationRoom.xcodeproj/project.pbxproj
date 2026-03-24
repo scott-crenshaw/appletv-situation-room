@@ -26,6 +26,7 @@
 		962C4435A7163679D4090CC1 /* ConflictData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F046DBA7824CB09AC8D8BD /* ConflictData.swift */; };
 		A12A9279760CAE1115A58EA6 /* SituationRoom/Sources/Models/NewsItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FCD6FD6A2CD8F008C9F5DFD /* SituationRoom/Sources/Models/NewsItem.swift */; };
 		A3402662B987E3FA6FDFEFB1 /* SituationRoom/Sources/Views/ThreatScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBC78FBD3755D91B29826A5 /* SituationRoom/Sources/Views/ThreatScreenView.swift */; };
+		A356417EBDD13B91BF6E4F80 /* ElectronicWarfareScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030E41E68758AB550BFA589F /* ElectronicWarfareScreenView.swift */; };
 		AED898395DCD4CCF8E24F890 /* SituationRoom/Sources/Views/SpaceScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2653D86F14530C07AEA874 /* SituationRoom/Sources/Views/SpaceScreenView.swift */; };
 		B0945694D6517E2D62854D3F /* SituationRoom/Sources/App/SituationRoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9259505413E698FDC51B658 /* SituationRoom/Sources/App/SituationRoomApp.swift */; };
 		B3053AE7A33230692C65D66C /* SituationRoom/Sources/Services/DashboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4F466806BFF167F33170FE /* SituationRoom/Sources/Services/DashboardState.swift */; };
@@ -38,6 +39,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		030E41E68758AB550BFA589F /* ElectronicWarfareScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ElectronicWarfareScreenView.swift; path = SituationRoom/Sources/Views/ElectronicWarfareScreenView.swift; sourceTree = SOURCE_ROOT; };
 		07954E9D8E1620D640C00F4F /* GulfCommandScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GulfCommandScreenView.swift; path = SituationRoom/Sources/Views/GulfCommandScreenView.swift; sourceTree = SOURCE_ROOT; };
 		2A17449AB8233609DC624AAC /* AirTrafficScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AirTrafficScreenView.swift; path = SituationRoom/Sources/Views/AirTrafficScreenView.swift; sourceTree = SOURCE_ROOT; };
 		2FCD6FD6A2CD8F008C9F5DFD /* SituationRoom/Sources/Models/NewsItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SituationRoom/Sources/Models/NewsItem.swift; sourceTree = SOURCE_ROOT; };
@@ -125,6 +127,7 @@
 				9BBC78FBD3755D91B29826A5 /* SituationRoom/Sources/Views/ThreatScreenView.swift */,
 				78054E408453FF4989EA1D36 /* FireWatchScreenView.swift */,
 				38884FD78C52A8BA73338C4A /* DigitalInfraScreenView.swift */,
+				030E41E68758AB550BFA589F /* ElectronicWarfareScreenView.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -259,6 +262,7 @@
 				D0FA48449BB85A3F05D946C0 /* FireWatchScreenView.swift in Sources */,
 				B718410385AB43B0687EF14D /* InfrastructureData.swift in Sources */,
 				7AC147EFA826A1BFE750C0C5 /* DigitalInfraScreenView.swift in Sources */,
+				A356417EBDD13B91BF6E4F80 /* ElectronicWarfareScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

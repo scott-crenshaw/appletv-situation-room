@@ -41,6 +41,8 @@ struct DashboardView: View {
                             FireWatchScreenView(state: state)
                         case .digitalInfra:
                             DigitalInfraScreenView(state: state)
+                        case .electronicWarfare:
+                            ElectronicWarfareScreenView(state: state)
                         }
                     }
                     .transition(.opacity.animation(.easeInOut(duration: 1.0)))

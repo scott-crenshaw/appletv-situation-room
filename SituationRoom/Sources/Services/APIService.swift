@@ -514,6 +514,7 @@ actor APIService {
         let isMilitary: Bool
         let category: String    // e.g. "A3" = large aircraft
         let onGround: Bool
+        let nacP: Int           // Navigation Accuracy Category — Position (0-11, lower = worse GPS)
     }
 
     /// Fetch flights within radius of a point using ADSB.lol (primary).
@@ -572,6 +573,7 @@ actor APIService {
             let distNm = ac["dst"] as? Double
             let dbFlags = ac["dbFlags"] as? Int ?? 0
             let category = (ac["category"] as? String) ?? ""
+            let nacP = ac["nac_p"] as? Int ?? 11  // Default 11 = best accuracy
 
             return FlightPosition(
                 id: hex,
@@ -587,7 +589,8 @@ actor APIService {
                 distanceNm: distNm,
                 isMilitary: dbFlags & 1 != 0,
                 category: category,
-                onGround: false
+                onGround: false,
+                nacP: nacP
             )
         }
     }
@@ -632,7 +635,8 @@ actor APIService {
                 distanceNm: nil,
                 isMilitary: false,
                 category: "",
-                onGround: false
+                onGround: false,
+                nacP: 11 // OpenSky doesn't provide NACp
             )
         }
     }
@@ -689,7 +693,8 @@ actor APIService {
                     distanceNm: nil,
                     isMilitary: dbFlags & 1 != 0,
                     category: "",
-                    onGround: false
+                    onGround: false,
+                    nacP: ac["nac_p"] as? Int ?? 11
                 )
             }
         }
@@ -1077,7 +1082,8 @@ actor APIService {
                     distanceNm: ac["dst"] as? Double,
                     isMilitary: (ac["dbFlags"] as? Int ?? 0) & 1 != 0,
                     category: (ac["category"] as? String) ?? "",
-                    onGround: false
+                    onGround: false,
+                    nacP: ac["nac_p"] as? Int ?? 11
                 )
             }
         }
