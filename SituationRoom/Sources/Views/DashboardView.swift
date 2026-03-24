@@ -39,6 +39,8 @@ struct DashboardView: View {
                             GulfCommandScreenView(state: state)
                         case .fireWatch:
                             FireWatchScreenView(state: state)
+                        case .digitalInfra:
+                            DigitalInfraScreenView(state: state)
                         }
                     }
                     .transition(.opacity.animation(.easeInOut(duration: 1.0)))

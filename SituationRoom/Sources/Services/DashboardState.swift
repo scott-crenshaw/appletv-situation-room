@@ -65,6 +65,10 @@ class DashboardState: ObservableObject {
     // Fire Watch
     @Published var fireHotspots: [FireHotspot] = []
 
+    // Digital Infrastructure
+    @Published var submarineCables: [SubmarineCable] = []
+    @Published var internetOutages: [InternetOutage] = []
+
     // MARK: - Configuration
 
     let autoRotateInterval: TimeInterval = 30 // seconds per screen
@@ -82,6 +86,7 @@ class DashboardState: ObservableObject {
         case airTraffic = "AIR TRAFFIC MONITOR"
         case gulfCommand = "PERSIAN GULF COMMAND"
         case fireWatch = "GLOBAL FIRE WATCH"
+        case digitalInfra = "DIGITAL INFRASTRUCTURE"
     }
 
     // MARK: - Timers
@@ -217,8 +222,9 @@ class DashboardState: ObservableObject {
         async let portfolioTask: () = fetchPortfolioData()
 
         async let fireTask: () = fetchFireData()
+        async let infraTask: () = fetchInfraData()
 
-        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask, portfolioTask, fireTask)
+        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask, portfolioTask, fireTask, infraTask)
         lastUpdated = Date()
     }
 
@@ -413,5 +419,13 @@ class DashboardState: ObservableObject {
         } catch {
             print("[FireWatch] Error: \(error.localizedDescription)")
         }
+    }
+
+    private func fetchInfraData() async {
+        async let cablesTask = APIService.shared.fetchSubmarineCables()
+        async let outagesTask = APIService.shared.fetchInternetOutages()
+
+        submarineCables = (try? await cablesTask) ?? []
+        internetOutages = (try? await outagesTask) ?? []
     }
 }

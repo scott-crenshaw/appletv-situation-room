@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 
 /// Central API service for fetching data from public APIs.
 /// All World Monitor data sources that don't require API keys are accessed directly.
@@ -1194,6 +1195,88 @@ actor APIService {
 
         // Sort by FRP descending (biggest fires first)
         return allHotspots.sorted { $0.frp > $1.frp }
+    }
+
+    // MARK: - Submarine Cables (TeleGeography — no auth)
+
+    func fetchSubmarineCables() async throws -> [SubmarineCable] {
+        let url = URL(string: "https://www.submarinecablemap.com/api/v3/cable/cable-geo.json")!
+        let (data, _) = try await session.data(from: url)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let features = json["features"] as? [[String: Any]] else {
+            return []
+        }
+
+        return features.compactMap { feature -> SubmarineCable? in
+            guard let props = feature["properties"] as? [String: Any],
+                  let id = props["id"] as? String,
+                  let name = props["name"] as? String,
+                  let geometry = feature["geometry"] as? [String: Any],
+                  let coordArrays = geometry["coordinates"] as? [[[Double]]] else {
+                return nil
+            }
+
+            let color = (props["color"] as? String) ?? "#666666"
+
+            let segments: [[CLLocationCoordinate2D]] = coordArrays.map { segment in
+                segment.compactMap { coord in
+                    guard coord.count >= 2 else { return nil }
+                    return CLLocationCoordinate2D(latitude: coord[1], longitude: coord[0])
+                }
+            }
+
+            guard !segments.isEmpty else { return nil }
+            return SubmarineCable(id: id, name: name, color: color, coordinates: segments)
+        }
+    }
+
+    // MARK: - Internet Outages (IODA — no auth)
+
+    func fetchInternetOutages() async throws -> [InternetOutage] {
+        let now = Int(Date().timeIntervalSince1970)
+        let oneDayAgo = now - 86400
+        let urlStr = "https://api.ioda.inetintel.cc.gatech.edu/v2/outages/alerts?from=\(oneDayAgo)&until=\(now)&entityType=country"
+        guard let url = URL(string: urlStr) else { return [] }
+
+        let (data, _) = try await session.data(from: url)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataArray = json["data"] as? [[String: Any]] else {
+            return []
+        }
+
+        return dataArray.compactMap { alert -> InternetOutage? in
+            guard let entity = alert["entity"] as? [String: Any],
+                  let code = entity["code"] as? String,
+                  let name = entity["name"] as? String,
+                  let type = entity["type"] as? String,
+                  let levelStr = alert["level"] as? String else {
+                return nil
+            }
+
+            // Only show critical/warning outages
+            let level: InternetOutage.OutageLevel
+            switch levelStr {
+            case "critical": level = .critical
+            case "warning": level = .warning
+            default: return nil
+            }
+
+            let datasource = (alert["datasource"] as? String) ?? "unknown"
+
+            // Geocode country code
+            guard let coords = countryCoordinates[code.uppercased()] else { return nil }
+
+            return InternetOutage(
+                id: "\(code)_\(datasource)_\(now)",
+                entityName: name,
+                entityCode: code,
+                entityType: type,
+                level: level,
+                datasource: datasource,
+                coordinate: CLLocationCoordinate2D(latitude: coords.0, longitude: coords.1)
+            )
+        }
     }
 
     private nonisolated func parseFireCSV(_ csv: String) -> [FireHotspot] {
