@@ -6,38 +6,37 @@ import MapKit
 struct SatelliteOrbitsScreenView: View {
     @ObservedObject var state: DashboardState
 
+    /// Combine all satellite sources: Starlink (from space data) + GPS/Military (from gulf data)
+    private var allSatellites: [APIService.SatellitePosition] {
+        state.satellitePositions + state.militarySatellites
+    }
+
     private var starlinkSats: [APIService.SatellitePosition] {
-        state.satellitePositions.filter { $0.group == "Starlink" }
+        allSatellites.filter { $0.group == "Starlink" }
     }
     private var gpsSats: [APIService.SatellitePosition] {
-        state.satellitePositions.filter { $0.group == "GPS" }
+        allSatellites.filter { $0.group == "GPS" }
     }
     private var militarySats: [APIService.SatellitePosition] {
-        state.satellitePositions.filter { $0.group == "Military" }
+        allSatellites.filter { $0.group == "Military" }
     }
 
     var body: some View {
         HStack(spacing: 16) {
-            // Left: Orbital map + ground track canvas (2/3 width)
+            // Left: Orbital map with ground tracks (2/3 width)
             VStack(spacing: 12) {
                 sectionHeader(
                     "ORBITAL CONSTELLATION TRACKER",
-                    subtitle: "\(state.satellitePositions.count) SATELLITES TRACKED"
+                    subtitle: "\(allSatellites.count) SATELLITES TRACKED"
                 )
-                ZStack {
-                    // Base satellite map
-                    SatelliteOrbitMapView(satellites: state.satellitePositions)
-                    // Overlay: ground track arcs drawn via Canvas
-                    GroundTrackOverlay(satellites: state.satellitePositions)
-                        .allowsHitTesting(false)
-                }
-                .frame(maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
-                )
-                OrbitStatsBar(satellites: state.satellitePositions)
+                SatelliteOrbitMapView(satellites: allSatellites)
+                    .frame(maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
+                    )
+                OrbitStatsBar(satellites: allSatellites)
             }
             .frame(maxWidth: .infinity)
 
@@ -52,7 +51,7 @@ struct SatelliteOrbitsScreenView: View {
                 sectionHeader("ISS POSITION", subtitle: nil)
                 OrbitISSPanel(position: state.issPosition)
                 sectionHeader("SATELLITE LIST", subtitle: nil)
-                SatelliteListPanel(satellites: state.satellitePositions)
+                SatelliteListPanel(satellites: allSatellites)
                     .frame(maxHeight: .infinity)
                 OrbitLegend()
             }
@@ -77,7 +76,7 @@ struct SatelliteOrbitsScreenView: View {
     }
 }
 
-// MARK: - Satellite Map (MapKit with constellation markers)
+// MARK: - Satellite Map with Ground Track Polylines
 
 struct SatelliteOrbitMapView: View {
     let satellites: [APIService.SatellitePosition]
@@ -89,7 +88,31 @@ struct SatelliteOrbitMapView: View {
 
     var body: some View {
         Map(position: $cameraPosition, interactionModes: []) {
-            // Satellite annotations — limit for performance
+            // Ground track polylines for GPS satellites (most visible, ~55° inclination)
+            ForEach(satellites.filter { $0.group == "GPS" }) { sat in
+                ForEach(0..<groundTrackSegments(for: sat).count, id: \.self) { idx in
+                    MapPolyline(coordinates: groundTrackSegments(for: sat)[idx])
+                        .stroke(.green.opacity(0.3), lineWidth: 1.5)
+                }
+            }
+
+            // Ground track polylines for Military satellites
+            ForEach(satellites.filter { $0.group == "Military" }) { sat in
+                ForEach(0..<groundTrackSegments(for: sat).count, id: \.self) { idx in
+                    MapPolyline(coordinates: groundTrackSegments(for: sat)[idx])
+                        .stroke(.red.opacity(0.25), lineWidth: 1.2)
+                }
+            }
+
+            // Ground track polylines for sample of Starlink (every 5th)
+            ForEach(starlinkSample) { sat in
+                ForEach(0..<groundTrackSegments(for: sat).count, id: \.self) { idx in
+                    MapPolyline(coordinates: groundTrackSegments(for: sat)[idx])
+                        .stroke(.white.opacity(0.08), lineWidth: 0.5)
+                }
+            }
+
+            // Satellite position dots
             ForEach(satellites.prefix(400)) { sat in
                 Annotation("", coordinate: CLLocationCoordinate2D(
                     latitude: sat.latitude,
@@ -98,8 +121,79 @@ struct SatelliteOrbitMapView: View {
                     OrbitSatDot(satellite: sat)
                 }
             }
+
+            // ISS marker if nearby data exists
         }
         .mapStyle(.imagery(elevation: .flat))
+    }
+
+    private var starlinkSample: [APIService.SatellitePosition] {
+        let starlink = satellites.filter { $0.group == "Starlink" }
+        return stride(from: 0, to: starlink.count, by: 5).map { starlink[$0] }
+    }
+
+    /// Generate ground track coordinate segments for a satellite.
+    /// Returns multiple segments (split at ±180° longitude wrap).
+    private func groundTrackSegments(for sat: APIService.SatellitePosition) -> [[CLLocationCoordinate2D]] {
+        let inclination = estimateInclination(sat)
+        let orbitalPeriod = estimateOrbitalPeriod(altitude: sat.altitude)
+
+        var segments: [[CLLocationCoordinate2D]] = []
+        var currentSegment: [CLLocationCoordinate2D] = []
+        var prevLon: Double?
+
+        let steps = 80
+        for i in 0...steps {
+            let fraction = Double(i) / Double(steps)
+
+            // Longitude advances linearly
+            let rawLon = sat.longitude + (fraction - 0.5) * 360.0 * (90.0 / orbitalPeriod)
+
+            // Latitude oscillates sinusoidally based on inclination
+            let clampedRatio = max(-1.0, min(1.0, sat.latitude / max(inclination, 1.0)))
+            let phase = 2.0 * .pi * fraction + asin(clampedRatio)
+            let lat = inclination * sin(phase)
+
+            // Normalize longitude to -180...180
+            var lon = rawLon.truncatingRemainder(dividingBy: 360.0)
+            if lon > 180 { lon -= 360 }
+            if lon < -180 { lon += 360 }
+
+            // Clamp latitude
+            let clampedLat = max(-85, min(85, lat))
+
+            // Detect longitude wrap — break segment
+            if let prev = prevLon, abs(lon - prev) > 90 {
+                if currentSegment.count >= 2 {
+                    segments.append(currentSegment)
+                }
+                currentSegment = []
+            }
+
+            currentSegment.append(CLLocationCoordinate2D(latitude: clampedLat, longitude: lon))
+            prevLon = lon
+        }
+
+        if currentSegment.count >= 2 {
+            segments.append(currentSegment)
+        }
+
+        return segments
+    }
+
+    private func estimateInclination(_ sat: APIService.SatellitePosition) -> Double {
+        switch sat.group {
+        case "Starlink": return 53.0
+        case "GPS": return 55.0
+        case "Military": return 65.0
+        default: return 51.6
+        }
+    }
+
+    private func estimateOrbitalPeriod(altitude: Double) -> Double {
+        let r = 6371.0 + altitude
+        let periodSeconds = 2.0 * .pi * sqrt(pow(r, 3) / 398600.4)
+        return periodSeconds / 60.0
     }
 }
 
@@ -110,7 +204,7 @@ struct OrbitSatDot: View {
 
     private var color: Color {
         switch satellite.group {
-        case "Starlink": return .white.opacity(0.6)
+        case "Starlink": return .white.opacity(0.7)
         case "GPS": return .green
         case "Military": return .red
         default: return .cyan
@@ -119,111 +213,23 @@ struct OrbitSatDot: View {
 
     private var size: CGFloat {
         switch satellite.group {
-        case "GPS", "Military": return 6
+        case "GPS": return 8
+        case "Military": return 7
         default: return 3
         }
     }
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: size, height: size)
-    }
-}
-
-// MARK: - Ground Track Overlay (Canvas-drawn orbital arcs)
-
-struct GroundTrackOverlay: View {
-    let satellites: [APIService.SatellitePosition]
-
-    var body: some View {
-        GeometryReader { geo in
-            Canvas { context, size in
-                // Draw faint orbital arcs for GPS and Military satellites
-                // These are approximate sinusoidal ground tracks
-                let importantSats = satellites.filter { $0.group == "GPS" || $0.group == "Military" }
-
-                for sat in importantSats {
-                    drawGroundTrack(context: context, size: size, satellite: sat)
-                }
-
-                // Draw a sample of Starlink tracks (every 10th)
-                let starlinkSample = satellites.filter { $0.group == "Starlink" }
-                    .enumerated().filter { $0.offset % 10 == 0 }.map { $0.element }
-                for sat in starlinkSample {
-                    drawGroundTrack(context: context, size: size, satellite: sat)
-                }
+        ZStack {
+            if satellite.group == "GPS" || satellite.group == "Military" {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: size * 2.5, height: size * 2.5)
             }
+            Circle()
+                .fill(color)
+                .frame(width: size, height: size)
         }
-    }
-
-    private func drawGroundTrack(context: GraphicsContext, size: CGSize, satellite: APIService.SatellitePosition) {
-        // Approximate ground track as a sinusoidal path
-        // Inclination determines latitude amplitude, current position sets phase
-        let inclination = estimateInclination(satellite)
-        let orbitalPeriod = estimateOrbitalPeriod(altitude: satellite.altitude)
-        let color: Color = satellite.group == "Starlink" ? .white.opacity(0.06) :
-                           satellite.group == "GPS" ? .green.opacity(0.15) : .red.opacity(0.2)
-        let lineWidth: CGFloat = satellite.group == "Starlink" ? 0.5 : 1.0
-
-        var path = Path()
-        let steps = 120
-        var lastPoint: CGPoint?
-
-        for i in 0...steps {
-            let fraction = Double(i) / Double(steps)
-            // Longitude advances linearly (wrapping around globe)
-            let lon = satellite.longitude + (fraction - 0.5) * 360.0 * (90.0 / orbitalPeriod)
-            // Latitude oscillates sinusoidally
-            let phase = 2.0 * .pi * fraction + asin(max(-1, min(1, satellite.latitude / inclination)))
-            let lat = inclination * sin(phase)
-
-            // Convert lat/lon to screen coordinates (equirectangular projection)
-            let x = ((lon + 180.0).truncatingRemainder(dividingBy: 360.0)) / 360.0 * size.width
-            let y = (90.0 - lat) / 180.0 * size.height
-            let point = CGPoint(x: x, y: y)
-
-            if let last = lastPoint {
-                // Don't draw line if wrapping around the edge
-                if abs(point.x - last.x) < size.width * 0.5 {
-                    if path.isEmpty {
-                        path.move(to: last)
-                    }
-                    path.addLine(to: point)
-                } else {
-                    // Break path at wrap
-                    if !path.isEmpty {
-                        context.stroke(path, with: .color(color), lineWidth: lineWidth)
-                        path = Path()
-                    }
-                }
-            }
-            lastPoint = point
-        }
-
-        if !path.isEmpty {
-            context.stroke(path, with: .color(color), lineWidth: lineWidth)
-        }
-    }
-
-    /// Estimate orbital inclination from satellite group
-    private func estimateInclination(_ sat: APIService.SatellitePosition) -> Double {
-        switch sat.group {
-        case "Starlink": return 53.0  // Most Starlink shells
-        case "GPS": return 55.0       // GPS constellation
-        case "Military": return 65.0  // Typical military LEO
-        default: return 51.6          // ISS-like
-        }
-    }
-
-    /// Estimate orbital period in minutes from altitude
-    private func estimateOrbitalPeriod(altitude: Double) -> Double {
-        let earthRadius = 6371.0 // km
-        let r = earthRadius + altitude
-        // T = 2π√(r³/μ), where μ = 398600.4 km³/s²
-        let mu = 398600.4
-        let periodSeconds = 2.0 * .pi * sqrt(pow(r, 3) / mu)
-        return periodSeconds / 60.0 // Convert to minutes
     }
 }
 
@@ -402,7 +408,7 @@ struct OrbitLegend: View {
                 legendItem("GPS (MEO ~20200km)", .green)
                 legendItem("MILITARY", .red)
             }
-            Text("Ground tracks show approximate orbital paths")
+            Text("Lines show approximate ground tracks")
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundColor(.gray.opacity(0.5))
         }

@@ -720,55 +720,81 @@ actor APIService {
     }
 
     func fetchSatellitePositions() async throws -> [SatellitePosition] {
-        // Fetch active Starlink satellites (GP JSON format includes orbital elements)
-        let url = URL(string: "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=json&LIMIT=200")!
-        var request = URLRequest(url: url)
-        request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+        // tle.ivanstanojevic.me — free TLE API, no auth required
+        // CelesTrak is unreliable (frequent timeouts), this is the fallback-turned-primary
+        let queries: [(search: String, group: String, limit: Int, altitude: Double)] = [
+            ("STARLINK", "Starlink", 150, 550.0),
+            ("GPS B", "GPS", 40, 20200.0),
+        ]
 
-        let (data, _) = try await session.data(for: request)
-        guard let entries = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
-        }
-
+        var allSats: [SatellitePosition] = []
         let now = Date()
-        return entries.prefix(150).compactMap { entry -> SatellitePosition? in
-            guard let name = entry["OBJECT_NAME"] as? String,
-                  let noradId = entry["NORAD_CAT_ID"] as? Int,
-                  let inclination = entry["INCLINATION"] as? Double,
-                  let raan = entry["RA_OF_ASC_NODE"] as? Double,
-                  let meanAnomaly = entry["MEAN_ANOMALY"] as? Double,
-                  let meanMotion = entry["MEAN_MOTION"] as? Double else { return nil }
 
-            // Simplified position from orbital elements (not precise, but visually correct)
-            // Mean motion is revs/day, convert to current position
-            let epochStr = entry["EPOCH"] as? String ?? ""
-            let epochDate = ISO8601DateFormatter().date(from: epochStr) ?? now
-            let elapsed = now.timeIntervalSince(epochDate) / 86400.0 // days
-            let currentAnomaly = (meanAnomaly + elapsed * meanMotion * 360).truncatingRemainder(dividingBy: 360)
+        for query in queries {
+            do {
+                let urlStr = "https://tle.ivanstanojevic.me/api/tle/?search=\(query.search)&page_size=\(query.limit)"
+                guard let url = URL(string: urlStr) else { continue }
+                let (data, _) = try await session.data(from: url)
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let members = json["member"] as? [[String: Any]] else { continue }
 
-            // Convert to lat/lon approximation
-            let argOfPerigee = (entry["ARG_OF_PERICENTER"] as? Double) ?? 0
-            let trueAnomaly = currentAnomaly * .pi / 180
-            let raanRad = raan * .pi / 180
-            let incRad = inclination * .pi / 180
-            let argRad = argOfPerigee * .pi / 180
+                let sats = members.compactMap { entry -> SatellitePosition? in
+                    guard let name = entry["name"] as? String,
+                          let satId = entry["satelliteId"] as? Int,
+                          let line2 = entry["line2"] as? String else { return nil }
 
-            let lat = asin(sin(incRad) * sin(trueAnomaly + argRad)) * 180 / .pi
-            let lon = (atan2(cos(incRad) * sin(trueAnomaly + argRad), cos(trueAnomaly + argRad)) + raanRad) * 180 / .pi
-            let normalizedLon = lon.truncatingRemainder(dividingBy: 360)
-            let finalLon = normalizedLon > 180 ? normalizedLon - 360 : (normalizedLon < -180 ? normalizedLon + 360 : normalizedLon)
+                    // Parse TLE line 2 for orbital elements
+                    // Format: 2 NNNNN INC RAAN ECC ARGP MA MM ...
+                    let parts = line2.split(separator: " ").map(String.init)
+                    guard parts.count >= 8 else { return nil }
 
-            let altitude = 550.0 // Starlink nominal altitude
+                    guard let inclination = Double(parts[2]),
+                          let raan = Double(parts[3]),
+                          let meanAnomaly = Double(parts[6]),
+                          let meanMotion = Double(parts[7].prefix(11)) else { return nil }
+                    let argOfPerigee = Double(parts[5]) ?? 0
 
-            return SatellitePosition(
-                id: "\(noradId)",
-                name: name,
-                latitude: lat,
-                longitude: finalLon,
-                altitude: altitude,
-                group: "Starlink"
-            )
+                    // Parse epoch from line 1
+                    let line1 = (entry["line1"] as? String) ?? ""
+                    var epochDate = now
+                    if let dateStr = entry["date"] as? String {
+                        let isoFmt = ISO8601DateFormatter()
+                        isoFmt.formatOptions = [.withInternetDateTime]
+                        epochDate = isoFmt.date(from: dateStr) ?? now
+                    }
+
+                    let elapsed = now.timeIntervalSince(epochDate) / 86400.0
+                    let currentAnomaly = (meanAnomaly + elapsed * meanMotion * 360)
+                        .truncatingRemainder(dividingBy: 360)
+
+                    let trueAnomaly = currentAnomaly * .pi / 180
+                    let raanRad = raan * .pi / 180
+                    let incRad = inclination * .pi / 180
+                    let argRad = argOfPerigee * .pi / 180
+
+                    let lat = asin(sin(incRad) * sin(trueAnomaly + argRad)) * 180 / .pi
+                    let lon = (atan2(cos(incRad) * sin(trueAnomaly + argRad),
+                                     cos(trueAnomaly + argRad)) + raanRad) * 180 / .pi
+                    let normalizedLon = lon.truncatingRemainder(dividingBy: 360)
+                    let finalLon = normalizedLon > 180 ? normalizedLon - 360 :
+                                   (normalizedLon < -180 ? normalizedLon + 360 : normalizedLon)
+
+                    return SatellitePosition(
+                        id: "\(satId)",
+                        name: name,
+                        latitude: lat,
+                        longitude: finalLon,
+                        altitude: query.altitude,
+                        group: query.group
+                    )
+                }
+                allSats.append(contentsOf: sats)
+            } catch {
+                print("[Satellites] Error fetching \(query.group): \(error.localizedDescription)")
+            }
         }
+
+        return allSats
     }
 
     // MARK: - Solar Flare X-ray Flux (NOAA SWPC GOES — no auth required)
@@ -1096,57 +1122,68 @@ actor APIService {
         return flights
     }
 
-    // MARK: - Military & GPS Satellites (CelesTrak GP — no auth required)
+    // MARK: - Military & GPS Satellites for Gulf Command (TLE API — no auth required)
 
     func fetchMilitarySatellites() async throws -> [SatellitePosition] {
-        let groups = ["military", "gps-ops"]
+        // Use same TLE API as main satellite fetch — CelesTrak is unreliable
+        let queries: [(search: String, group: String, limit: Int, altitude: Double)] = [
+            ("GPS B", "GPS", 35, 20200.0),
+            ("SAPPHIRE", "Military", 5, 800.0),
+        ]
+
         var allSats: [SatellitePosition] = []
+        let now = Date()
 
-        for group in groups {
-            guard let url = URL(string: "https://celestrak.org/NORAD/elements/gp.php?GROUP=\(group)&FORMAT=json") else { continue }
-            var request = URLRequest(url: url)
-            request.setValue("SituationRoom/1.0", forHTTPHeaderField: "User-Agent")
+        for query in queries {
+            guard let url = URL(string: "https://tle.ivanstanojevic.me/api/tle/?search=\(query.search)&page_size=\(query.limit)") else { continue }
 
-            guard let (data, _) = try? await session.data(for: request),
-                  let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-                continue
-            }
+            guard let (data, _) = try? await session.data(from: url),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let members = json["member"] as? [[String: Any]] else { continue }
 
-            let now = Date()
-            let isoFormatter = ISO8601DateFormatter()
-            let nominalAlt: Double = group == "gps-ops" ? 20200 : 800
+            let sats = members.compactMap { entry -> SatellitePosition? in
+                guard let name = entry["name"] as? String,
+                      let satId = entry["satelliteId"] as? Int,
+                      let line2 = entry["line2"] as? String else { return nil }
 
-            let sats = entries.prefix(120).compactMap { entry -> SatellitePosition? in
-                guard let name = entry["OBJECT_NAME"] as? String,
-                      let noradId = entry["NORAD_CAT_ID"] as? Int,
-                      let inclination = entry["INCLINATION"] as? Double,
-                      let raan = entry["RA_OF_ASC_NODE"] as? Double,
-                      let meanAnomaly = entry["MEAN_ANOMALY"] as? Double,
-                      let meanMotion = entry["MEAN_MOTION"] as? Double else { return nil }
+                let parts = line2.split(separator: " ").map(String.init)
+                guard parts.count >= 8,
+                      let inclination = Double(parts[2]),
+                      let raan = Double(parts[3]),
+                      let meanAnomaly = Double(parts[6]),
+                      let meanMotion = Double(parts[7].prefix(11)) else { return nil }
+                let argOfPerigee = Double(parts[5]) ?? 0
 
-                let epochStr = entry["EPOCH"] as? String ?? ""
-                let epochDate = isoFormatter.date(from: epochStr) ?? now
+                var epochDate = now
+                if let dateStr = entry["date"] as? String {
+                    let isoFmt = ISO8601DateFormatter()
+                    isoFmt.formatOptions = [.withInternetDateTime]
+                    epochDate = isoFmt.date(from: dateStr) ?? now
+                }
+
                 let elapsed = now.timeIntervalSince(epochDate) / 86400.0
-                let currentAnomaly = (meanAnomaly + elapsed * meanMotion * 360).truncatingRemainder(dividingBy: 360)
+                let currentAnomaly = (meanAnomaly + elapsed * meanMotion * 360)
+                    .truncatingRemainder(dividingBy: 360)
 
-                let argOfPerigee = (entry["ARG_OF_PERICENTER"] as? Double) ?? 0
                 let trueAnomaly = currentAnomaly * .pi / 180
                 let raanRad = raan * .pi / 180
                 let incRad = inclination * .pi / 180
                 let argRad = argOfPerigee * .pi / 180
 
                 let lat = asin(sin(incRad) * sin(trueAnomaly + argRad)) * 180 / .pi
-                let lon = (atan2(cos(incRad) * sin(trueAnomaly + argRad), cos(trueAnomaly + argRad)) + raanRad) * 180 / .pi
+                let lon = (atan2(cos(incRad) * sin(trueAnomaly + argRad),
+                                 cos(trueAnomaly + argRad)) + raanRad) * 180 / .pi
                 let normalizedLon = lon.truncatingRemainder(dividingBy: 360)
-                let finalLon = normalizedLon > 180 ? normalizedLon - 360 : (normalizedLon < -180 ? normalizedLon + 360 : normalizedLon)
+                let finalLon = normalizedLon > 180 ? normalizedLon - 360 :
+                               (normalizedLon < -180 ? normalizedLon + 360 : normalizedLon)
 
                 return SatellitePosition(
-                    id: "\(noradId)",
+                    id: "\(satId)",
                     name: name,
                     latitude: lat,
                     longitude: finalLon,
-                    altitude: nominalAlt,
-                    group: group == "gps-ops" ? "GPS" : "Military"
+                    altitude: query.altitude,
+                    group: query.group
                 )
             }
             allSats.append(contentsOf: sats)
