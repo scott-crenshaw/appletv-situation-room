@@ -1,37 +1,92 @@
 import SwiftUI
 import MapKit
 
-/// Screen 13: Maritime Surveillance — AIS vessel tracking (Baltic Sea).
-/// Ship icons on dark satellite map + vessel table.
+/// Screen 13: Maritime Surveillance — AIS vessel tracking across 5 global regions.
+/// Cycles through regions at 30s each (150s total). Ship icons on dark satellite map + vessel table.
 struct MaritimeScreenView: View {
     @ObservedObject var state: DashboardState
+    @State private var currentRegionIndex = 0
+
+    private var region: MaritimeRegion {
+        MaritimeRegion.allCases[currentRegionIndex]
+    }
+
+    private var vessels: [MaritimeVessel] {
+        state.maritimeStream.vesselsByRegion[region] ?? []
+    }
 
     var body: some View {
         HStack(spacing: 16) {
             // Left: Vessel map (2/3 width)
             VStack(spacing: 12) {
                 sectionHeader(
-                    "BALTIC SEA AIS TRACKING",
-                    subtitle: "\(state.maritimeVessels.count) VESSELS — FINNISH DIGITRAFFIC"
+                    region.name,
+                    subtitle: "\(vessels.count) VESSELS — AISSTREAM.IO"
                 )
-                VesselMapView(vessels: state.maritimeVessels)
-                    .frame(maxHeight: .infinity)
-                MaritimeStatsBar(vessels: state.maritimeVessels)
+                if !state.maritimeStream.hasAPIKey {
+                    apiKeyMissingView
+                } else {
+                    RegionalVesselMapView(vessels: vessels, region: region)
+                        .frame(maxHeight: .infinity)
+                    MaritimeStatsBar(vessels: vessels, region: region,
+                                     isConnected: state.maritimeStream.isConnected)
+                }
             }
             .frame(maxWidth: .infinity)
 
             // Right: Vessel table
             VStack(spacing: 12) {
                 sectionHeader("VESSEL REGISTRY", subtitle: nil)
-                VesselTypeBreakdown(vessels: state.maritimeVessels)
+                VesselTypeBreakdown(vessels: vessels)
                 sectionHeader("ACTIVE VESSELS", subtitle: nil)
-                VesselTable(vessels: state.maritimeVessels)
+                VesselTable(vessels: vessels)
                     .frame(maxHeight: .infinity)
+                regionIndicator
                 VesselLegend()
             }
             .frame(width: 560)
         }
         .padding(24)
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
+            let elapsed = now.timeIntervalSince(state.screenStartedAt)
+            let phase = min(Int(elapsed / 30), MaritimeRegion.allCases.count - 1)
+            if phase != currentRegionIndex {
+                withAnimation(.easeInOut(duration: 1.5)) {
+                    currentRegionIndex = phase
+                }
+            }
+        }
+        .onChange(of: state.currentScreen) {
+            currentRegionIndex = 0
+        }
+    }
+
+    private var apiKeyMissingView: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "key.slash")
+                .font(.system(size: 48))
+                .foregroundColor(.red.opacity(0.6))
+            Text("AISSTREAM API KEY REQUIRED")
+                .font(.system(size: 18, weight: .heavy, design: .monospaced))
+                .foregroundColor(.red.opacity(0.8))
+            Text("Add your key to Secrets.plist")
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundColor(.gray)
+            Spacer()
+        }
+    }
+
+    private var regionIndicator: some View {
+        HStack(spacing: 8) {
+            ForEach(MaritimeRegion.allCases, id: \.rawValue) { r in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(r == region ? Color.cyan : Color.white.opacity(0.15))
+                    .frame(width: r == region ? 24 : 12, height: 4)
+                    .animation(.easeInOut(duration: 0.3), value: currentRegionIndex)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private func sectionHeader(_ title: String, subtitle: String?) -> some View {
@@ -50,16 +105,13 @@ struct MaritimeScreenView: View {
     }
 }
 
-// MARK: - Vessel Map
+// MARK: - Regional Vessel Map
 
-struct VesselMapView: View {
-    let vessels: [APIService.MaritimeVessel]
+struct RegionalVesselMapView: View {
+    let vessels: [MaritimeVessel]
+    let region: MaritimeRegion
 
-    // Baltic Sea center
-    @State private var cameraPosition: MapCameraPosition = .camera(MapCamera(
-        centerCoordinate: CLLocationCoordinate2D(latitude: 59.5, longitude: 22.0),
-        distance: 2_500_000
-    ))
+    @State private var cameraPosition: MapCameraPosition = .automatic
 
     var body: some View {
         Map(position: $cameraPosition, interactionModes: []) {
@@ -78,13 +130,27 @@ struct VesselMapView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
         )
+        .onAppear {
+            cameraPosition = .camera(MapCamera(
+                centerCoordinate: region.mapCenter,
+                distance: region.mapDistance
+            ))
+        }
+        .onChange(of: region) { _, newRegion in
+            withAnimation(.easeInOut(duration: 2.0)) {
+                cameraPosition = .camera(MapCamera(
+                    centerCoordinate: newRegion.mapCenter,
+                    distance: newRegion.mapDistance
+                ))
+            }
+        }
     }
 }
 
 // MARK: - Vessel Dot
 
 struct VesselDot: View {
-    let vessel: APIService.MaritimeVessel
+    let vessel: MaritimeVessel
 
     private var color: Color {
         switch vessel.shipType {
@@ -100,17 +166,20 @@ struct VesselDot: View {
 
     var body: some View {
         ZStack {
-            // Direction indicator for moving vessels
+            // Glow halo for visibility at wide zoom
+            Circle()
+                .fill(color.opacity(0.3))
+                .frame(width: vessel.isMoving ? 14 : 10, height: vessel.isMoving ? 14 : 10)
             if vessel.isMoving && vessel.heading > 0 && vessel.heading < 360 {
                 Image(systemName: "arrowtriangle.up.fill")
-                    .font(.system(size: 6))
+                    .font(.system(size: 8))
                     .foregroundColor(color)
                     .rotationEffect(.degrees(vessel.heading))
-                    .offset(y: -6)
+                    .offset(y: -8)
             }
             Circle()
                 .fill(color)
-                .frame(width: vessel.isMoving ? 5 : 3, height: vessel.isMoving ? 5 : 3)
+                .frame(width: vessel.isMoving ? 8 : 5, height: vessel.isMoving ? 8 : 5)
         }
     }
 }
@@ -118,7 +187,7 @@ struct VesselDot: View {
 // MARK: - Vessel Type Breakdown
 
 struct VesselTypeBreakdown: View {
-    let vessels: [APIService.MaritimeVessel]
+    let vessels: [MaritimeVessel]
 
     private var typeCounts: [(String, Int, Color)] {
         let types: [(String, ClosedRange<Int>, Color)] = [
@@ -159,10 +228,9 @@ struct VesselTypeBreakdown: View {
 // MARK: - Vessel Table
 
 struct VesselTable: View {
-    let vessels: [APIService.MaritimeVessel]
+    let vessels: [MaritimeVessel]
 
-    /// Show moving vessels first, sorted by speed
-    private var sortedVessels: [APIService.MaritimeVessel] {
+    private var sortedVessels: [MaritimeVessel] {
         vessels.sorted { $0.sog > $1.sog }
     }
 
@@ -184,7 +252,7 @@ struct VesselTable: View {
                         }
                         Spacer()
                         if !vessel.destination.isEmpty {
-                            Text("→ " + vessel.destination.prefix(12))
+                            Text("\u{2192} " + vessel.destination.prefix(12))
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundColor(.cyan.opacity(0.6))
                         }
@@ -216,7 +284,9 @@ struct VesselTable: View {
 // MARK: - Maritime Stats Bar
 
 struct MaritimeStatsBar: View {
-    let vessels: [APIService.MaritimeVessel]
+    let vessels: [MaritimeVessel]
+    let region: MaritimeRegion
+    let isConnected: Bool
 
     private var movingCount: Int { vessels.filter { $0.isMoving }.count }
     private var avgSpeed: Double {
@@ -231,8 +301,8 @@ struct MaritimeStatsBar: View {
             statItem("UNDERWAY", "\(movingCount)", .green)
             statItem("STATIONARY", "\(vessels.count - movingCount)", .gray)
             statItem("AVG SPEED", String(format: "%.1f kn", avgSpeed), .cyan)
-            statItem("COVERAGE", "BALTIC SEA", .gray)
-            statItem("SOURCE", "DIGITRAFFIC AIS", .gray)
+            statItem("REGION", String(region.name.prefix(20)).uppercased(), .gray)
+            statItem("LINK", isConnected ? "LIVE" : "DOWN", isConnected ? .green : .red)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

@@ -6,3 +6,6 @@ __pycache__/
 # Private project docs
 docs/STATUS.md
 docs/DECISIONS.md
+
+# API keys
+SituationRoom/Sources/Config/Secrets.plist

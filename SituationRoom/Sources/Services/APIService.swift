@@ -1322,105 +1322,6 @@ actor APIService {
         }
     }
 
-    // MARK: - Maritime AIS (Finnish Digitraffic — no auth)
-
-    struct MaritimeVessel: Identifiable {
-        let id: String            // MMSI
-        let name: String
-        let shipType: Int
-        let latitude: Double
-        let longitude: Double
-        let sog: Double           // Speed over ground
-        let cog: Double           // Course over ground
-        let heading: Double
-        let navStatus: Int
-        let destination: String
-        let timestamp: Date
-
-        var shipTypeText: String {
-            switch shipType {
-            case 35: return "MILITARY"
-            case 60...69: return "PASSENGER"
-            case 70...79: return "CARGO"
-            case 80...89: return "TANKER"
-            case 30: return "FISHING"
-            case 51: return "SAR"
-            default: return "OTHER"
-            }
-        }
-
-        var isMoving: Bool { sog > 0.5 }
-    }
-
-    func fetchMaritimeVessels() async throws -> [MaritimeVessel] {
-        // Fetch positions (GeoJSON) — Baltic Sea area
-        let posURL = URL(string: "https://meri.digitraffic.fi/api/ais/v1/locations")!
-        let (posData, _) = try await session.data(from: posURL)
-
-        guard let posJson = try JSONSerialization.jsonObject(with: posData) as? [String: Any],
-              let features = posJson["features"] as? [[String: Any]] else {
-            return []
-        }
-
-        // Parse positions — filter to last 1 hour only
-        let oneHourAgo = Date().addingTimeInterval(-3600).timeIntervalSince1970 * 1000
-        var positions: [String: (lat: Double, lon: Double, sog: Double, cog: Double,
-                                  heading: Double, navStat: Int, timestamp: Date)] = [:]
-
-        for feature in features {
-            guard let props = feature["properties"] as? [String: Any],
-                  let mmsi = props["mmsi"] as? Int,
-                  let ts = props["timestampExternal"] as? Double,
-                  ts > oneHourAgo,
-                  let geometry = feature["geometry"] as? [String: Any],
-                  let coords = geometry["coordinates"] as? [Double],
-                  coords.count >= 2 else { continue }
-
-            positions[String(mmsi)] = (
-                lat: coords[1], lon: coords[0],
-                sog: props["sog"] as? Double ?? 0,
-                cog: props["cog"] as? Double ?? 0,
-                heading: props["heading"] as? Double ?? 0,
-                navStat: props["navStat"] as? Int ?? 15,
-                timestamp: Date(timeIntervalSince1970: ts / 1000)
-            )
-        }
-
-        // Fetch vessel metadata
-        let vesselURL = URL(string: "https://meri.digitraffic.fi/api/ais/v1/vessels")!
-        let (vesselData, _) = try await session.data(from: vesselURL)
-
-        var vessels: [String: (name: String, shipType: Int, destination: String)] = [:]
-        if let vesselArray = try JSONSerialization.jsonObject(with: vesselData) as? [[String: Any]] {
-            for v in vesselArray {
-                guard let mmsi = v["mmsi"] as? Int else { continue }
-                vessels[String(mmsi)] = (
-                    name: (v["name"] as? String) ?? "UNKNOWN",
-                    shipType: v["shipType"] as? Int ?? 0,
-                    destination: (v["destination"] as? String) ?? ""
-                )
-            }
-        }
-
-        // Join positions + metadata, take first 600 for performance
-        return positions.prefix(600).compactMap { mmsi, pos -> MaritimeVessel? in
-            let info = vessels[mmsi]
-            return MaritimeVessel(
-                id: mmsi,
-                name: info?.name ?? "UNKNOWN",
-                shipType: info?.shipType ?? 0,
-                latitude: pos.lat,
-                longitude: pos.lon,
-                sog: pos.sog,
-                cog: pos.cog,
-                heading: pos.heading,
-                navStatus: pos.navStat,
-                destination: info?.destination ?? "",
-                timestamp: pos.timestamp
-            )
-        }
-    }
-
     private nonisolated func parseFireCSV(_ csv: String) -> [FireHotspot] {
         let lines = csv.components(separatedBy: "\n")
         guard lines.count > 1 else { return [] }
@@ -1461,5 +1362,311 @@ actor APIService {
         }
 
         return hotspots
+    }
+
+    // MARK: - Biosecurity: WHO Disease Outbreak News (no auth)
+
+    func fetchOutbreakAlerts() async throws -> [OutbreakAlert] {
+        let url = URL(string: "https://www.who.int/api/news/diseaseoutbreaknews?$top=30&$orderby=PublicationDate%20desc")!
+        var request = URLRequest(url: url)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, _) = try await session.data(for: request)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = json["value"] as? [[String: Any]] else {
+            return []
+        }
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        dateFormatter.timeZone = TimeZone(identifier: "UTC")
+
+        // Also try ISO8601 with fractional seconds
+        let altFormatter = DateFormatter()
+        altFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        altFormatter.timeZone = TimeZone(identifier: "UTC")
+
+        return items.compactMap { item -> OutbreakAlert? in
+            guard let donId = item["DonId"] as? String,
+                  let title = item["Title"] as? String,
+                  let dateStr = item["PublicationDate"] as? String else { return nil }
+
+            let date = dateFormatter.date(from: dateStr) ?? altFormatter.date(from: dateStr) ?? Date()
+            let overview = (item["Overview"] as? String) ?? ""
+            let summary = String(overview.prefix(300))
+
+            // Extract disease and country from title (format: "Disease — Country")
+            let titleLower = title.lowercased()
+
+            // Classify pathogen
+            var disease = "Unknown"
+            var bsl = 2
+            var severity = BiosecurityLevel.low
+            for pathogen in pathogenClassification {
+                if titleLower.contains(pathogen.pattern) {
+                    disease = pathogen.disease
+                    bsl = pathogen.bsl
+                    severity = pathogen.severity
+                    break
+                }
+            }
+            // Check for food safety events
+            if titleLower.contains("food safety") || titleLower.contains("contaminated") {
+                disease = "Food Safety"
+                bsl = 1
+                severity = .low
+            }
+
+            // Geocode country from title
+            var country = "Unknown"
+            var lat = 20.0
+            var lon = 0.0
+            for geo in countryGeocodeLookup {
+                if titleLower.contains(geo.pattern) {
+                    country = geo.name
+                    lat = geo.lat
+                    lon = geo.lon
+                    break
+                }
+            }
+
+            return OutbreakAlert(
+                id: donId,
+                title: title,
+                disease: disease,
+                country: country,
+                date: date,
+                summary: summary,
+                severity: severity,
+                latitude: lat,
+                longitude: lon,
+                bslLevel: bsl
+            )
+        }
+    }
+
+    // MARK: - Biosecurity: Global Health Baseline (disease.sh — no auth)
+
+    func fetchGlobalHealthBaseline() async throws -> [CountryHealthData] {
+        let url = URL(string: "https://disease.sh/v3/covid-19/countries?sort=active")!
+        let (data, _) = try await session.data(from: url)
+
+        guard let countries = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+
+        return countries.prefix(50).compactMap { c -> CountryHealthData? in
+            guard let name = c["country"] as? String,
+                  let info = c["countryInfo"] as? [String: Any],
+                  let lat = info["lat"] as? Double,
+                  let lon = info["long"] as? Double,
+                  let active = c["active"] as? Int else { return nil }
+
+            let iso = (info["iso2"] as? String) ?? name
+            let perMillion = (c["activePerOneMillion"] as? Double) ?? 0
+
+            return CountryHealthData(
+                id: iso,
+                country: name,
+                activeCases: active,
+                activePerMillion: perMillion,
+                latitude: lat,
+                longitude: lon
+            )
+        }
+    }
+
+    // MARK: - Space Launches (Launch Library 2 — no auth required)
+
+    func fetchUpcomingLaunches() async throws -> [SpaceLaunch] {
+        let url = URL(string: "https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?limit=10&format=json")!
+        let (data, _) = try await session.data(from: url)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let results = json["results"] as? [[String: Any]] else {
+            return []
+        }
+
+        return results.compactMap { parseLaunch($0) }
+    }
+
+    func fetchRecentLaunches() async throws -> [SpaceLaunch] {
+        let url = URL(string: "https://lldev.thespacedevs.com/2.2.0/launch/previous/?limit=5&format=json")!
+        let (data, _) = try await session.data(from: url)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let results = json["results"] as? [[String: Any]] else {
+            return []
+        }
+
+        return results.compactMap { parseLaunch($0) }
+    }
+
+    private func parseLaunch(_ item: [String: Any]) -> SpaceLaunch? {
+        guard let id = item["id"] as? String,
+              let name = item["name"] as? String,
+              let netStr = item["net"] as? String else { return nil }
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoFormatterNoFrac = ISO8601DateFormatter()
+        isoFormatterNoFrac.formatOptions = [.withInternetDateTime]
+        guard let net = isoFormatter.date(from: netStr) ?? isoFormatterNoFrac.date(from: netStr) else { return nil }
+
+        // Parse name: "Rocket | Mission"
+        let parts = name.split(separator: "|", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+        let rocketName = parts.first ?? name
+        let missionName = parts.count > 1 ? parts[1] : name
+
+        // Status
+        let statusDict = item["status"] as? [String: Any]
+        let statusName = statusDict?["name"] as? String ?? "Unknown"
+
+        // Net precision
+        let precDict = item["net_precision"] as? [String: Any]
+        let precision = precDict?["abbrev"] as? String ?? "DAY"
+
+        // Provider
+        let providerDict = item["launch_service_provider"] as? [String: Any]
+        let providerName = providerDict?["name"] as? String ?? "Unknown"
+        let providerType = providerDict?["type"] as? String ?? "Unknown"
+
+        // Mission
+        let missionDict = item["mission"] as? [String: Any]
+        let missionDesc = missionDict?["description"] as? String
+        let missionType = missionDict?["type"] as? String
+        let orbitDict = missionDict?["orbit"] as? [String: Any]
+        let orbitName = orbitDict?["name"] as? String
+
+        // Pad & location
+        let padDict = item["pad"] as? [String: Any]
+        let padName = padDict?["name"] as? String ?? "Unknown Pad"
+        let latStr = padDict?["latitude"] as? String ?? "0"
+        let lonStr = padDict?["longitude"] as? String ?? "0"
+        let lat = Double(latStr) ?? 0
+        let lon = Double(lonStr) ?? 0
+        let locDict = padDict?["location"] as? [String: Any]
+        let locationName = locDict?["name"] as? String ?? "Unknown"
+        let countryCode = locDict?["country_code"] as? String ?? ""
+
+        // Image & webcast
+        let imageURL = item["image"] as? String
+        let webcastLive = item["webcast_live"] as? Bool ?? false
+
+        // Probability
+        let probability = item["probability"] as? Int
+        let weatherConcerns = item["weather_concerns"] as? String
+
+        return SpaceLaunch(
+            id: id,
+            name: name,
+            rocketName: rocketName,
+            missionName: missionName,
+            net: net,
+            netPrecision: precision,
+            status: LaunchStatus(from: statusName),
+            probability: probability,
+            weatherConcerns: weatherConcerns,
+            providerName: providerName,
+            providerType: providerType,
+            missionDescription: missionDesc,
+            missionType: missionType,
+            orbitName: orbitName,
+            padName: padName,
+            locationName: locationName,
+            countryCode: countryCode,
+            latitude: lat,
+            longitude: lon,
+            imageURL: imageURL,
+            webcastLive: webcastLive
+        )
+    }
+
+    // MARK: - European Power Grid (Energy Charts / Fraunhofer ISE — no auth)
+
+    /// Fetch latest electricity price for a bidding zone
+    func fetchElectricityPrice(biddingZone: String) async throws -> Double? {
+        let urlStr = "https://api.energy-charts.info/price?bzn=\(biddingZone)"
+        guard let url = URL(string: urlStr) else { return nil }
+        let (data, _) = try await session.data(from: url)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let prices = json["price"] as? [Double?] else { return nil }
+
+        // Return the last non-nil price (most recent complete period)
+        return prices.reversed().first(where: { $0 != nil }) ?? nil
+    }
+
+    /// Fetch latest generation mix for a country
+    func fetchGenerationMix(country: String) async throws -> GenerationMix? {
+        let urlStr = "https://api.energy-charts.info/public_power?country=\(country)"
+        guard let url = URL(string: urlStr) else { return nil }
+        let (data, _) = try await session.data(from: url)
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let types = json["production_types"] as? [[String: Any]] else { return nil }
+
+        var mix = GenerationMix()
+
+        for typeEntry in types {
+            guard let name = typeEntry["name"] as? String,
+                  let values = typeEntry["data"] as? [Double?] else { continue }
+
+            // Get last non-nil value
+            guard let latest = values.reversed().first(where: { $0 != nil }) ?? nil else { continue }
+
+            switch name {
+            case "Nuclear":
+                mix.nuclear = max(latest, 0)
+            case "Wind onshore":
+                mix.windOnshore = max(latest, 0)
+            case "Wind offshore":
+                mix.windOffshore = max(latest, 0)
+            case "Solar":
+                mix.solar = max(latest, 0)
+            case "Fossil gas":
+                mix.gas = max(latest, 0)
+            case "Fossil brown coal / lignite":
+                mix.coalLignite = max(latest, 0)
+            case "Fossil hard coal":
+                mix.coalHard = max(latest, 0)
+            case "Hydro Run-of-River", "Hydro water reservoir":
+                mix.hydro += max(latest, 0)
+            case "Hydro pumped storage":
+                mix.hydro += max(latest, 0)
+            case "Biomass":
+                mix.biomass = max(latest, 0)
+            case "Waste", "Geothermal", "Fossil oil", "Fossil coal-derived gas", "Others":
+                mix.other += max(latest, 0)
+            case "Load":
+                mix.load = latest
+            case "Renewable share of generation":
+                mix.renewableShare = latest
+            default:
+                break
+            }
+        }
+
+        return mix
+    }
+
+    /// Fetch power data for all configured European countries
+    func fetchEuropeanPowerData() async throws -> [CountryPowerData] {
+        var results: [CountryPowerData] = []
+
+        for country in PowerCountry.all {
+            var powerData = CountryPowerData(id: country.id, country: country)
+
+            // Fetch price
+            powerData.price = try? await fetchElectricityPrice(biddingZone: country.biddingZone)
+
+            // Fetch generation mix for all countries
+            powerData.generationMix = try? await fetchGenerationMix(country: country.genCode)
+
+            results.append(powerData)
+        }
+
+        return results
     }
 }

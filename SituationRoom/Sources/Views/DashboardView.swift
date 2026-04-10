@@ -47,6 +47,12 @@ struct DashboardView: View {
                             MaritimeScreenView(state: state)
                         case .satelliteOrbits:
                             SatelliteOrbitsScreenView(state: state)
+                        case .biosecurity:
+                            BiosecurityScreenView(state: state)
+                        case .spaceLaunch:
+                            SpaceLaunchScreenView(state: state)
+                        case .europeanPower:
+                            EuropeanPowerScreenView(state: state)
                         }
                     }
                     .transition(.opacity.animation(.easeInOut(duration: 1.0)))

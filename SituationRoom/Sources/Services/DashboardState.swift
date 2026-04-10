@@ -70,7 +70,18 @@ class DashboardState: ObservableObject {
     @Published var internetOutages: [InternetOutage] = []
 
     // Maritime Surveillance
-    @Published var maritimeVessels: [APIService.MaritimeVessel] = []
+    let maritimeStream = MaritimeStreamService()
+
+    // Biosecurity
+    @Published var outbreakAlerts: [OutbreakAlert] = []
+    @Published var globalHealthData: [CountryHealthData] = []
+
+    // Space Launches
+    @Published var upcomingLaunches: [SpaceLaunch] = []
+    @Published var recentLaunches: [SpaceLaunch] = []
+
+    // European Power Grid
+    @Published var europeanPowerData: [CountryPowerData] = []
 
     // MARK: - Configuration
 
@@ -93,6 +104,9 @@ class DashboardState: ObservableObject {
         case electronicWarfare = "ELECTRONIC WARFARE"
         case maritime = "MARITIME SURVEILLANCE"
         case satelliteOrbits = "SATELLITE ORBITS"
+        case biosecurity = "BIOSECURITY THREAT BOARD"
+        case spaceLaunch = "SPACE LAUNCH COMMAND"
+        case europeanPower = "EUROPEAN POWER GRID"
     }
 
     // MARK: - Timers
@@ -112,12 +126,14 @@ class DashboardState: ObservableObject {
         startAutoRotation()
         startDataRefresh()
         startMapPanning()
+        maritimeStream.start()
     }
 
     func stopDashboard() {
         rotationTimer?.invalidate()
         dataRefreshTimer?.invalidate()
         mapPanTimer?.invalidate()
+        maritimeStream.stop()
     }
 
     // MARK: - Auto Rotation
@@ -126,6 +142,7 @@ class DashboardState: ObservableObject {
     func screenDuration(for screen: DashboardScreen) -> TimeInterval {
         switch screen {
         case .airTraffic, .gulfCommand: return 60
+        case .maritime: return 150  // 5 regions × 30s each
         default: return autoRotateInterval
         }
     }
@@ -229,9 +246,11 @@ class DashboardState: ObservableObject {
 
         async let fireTask: () = fetchFireData()
         async let infraTask: () = fetchInfraData()
-        async let maritimeTask: () = fetchMaritimeData()
+        async let biosecurityTask: () = fetchBiosecurityData()
+        async let spaceLaunchTask: () = fetchSpaceLaunchData()
+        async let powerTask: () = fetchEuropeanPowerData()
 
-        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask, portfolioTask, fireTask, infraTask, maritimeTask)
+        _ = await (marketTask, cryptoTask, quakeTask, newsTask, fgTask, spaceTask, eventsTask, cyberTask, deepMarketsTask, flightsTask, gulfTask, portfolioTask, fireTask, infraTask, biosecurityTask, spaceLaunchTask, powerTask)
         lastUpdated = Date()
     }
 
@@ -428,19 +447,35 @@ class DashboardState: ObservableObject {
         }
     }
 
-    private func fetchMaritimeData() async {
-        do {
-            maritimeVessels = try await APIService.shared.fetchMaritimeVessels()
-        } catch {
-            print("[Maritime] Error: \(error.localizedDescription)")
-        }
-    }
-
     private func fetchInfraData() async {
         async let cablesTask = APIService.shared.fetchSubmarineCables()
         async let outagesTask = APIService.shared.fetchInternetOutages()
 
         submarineCables = (try? await cablesTask) ?? []
         internetOutages = (try? await outagesTask) ?? []
+    }
+
+    private func fetchBiosecurityData() async {
+        async let alertsTask = APIService.shared.fetchOutbreakAlerts()
+        async let healthTask = APIService.shared.fetchGlobalHealthBaseline()
+
+        outbreakAlerts = (try? await alertsTask) ?? []
+        globalHealthData = (try? await healthTask) ?? []
+    }
+
+    private func fetchSpaceLaunchData() async {
+        async let upcomingTask = APIService.shared.fetchUpcomingLaunches()
+        async let recentTask = APIService.shared.fetchRecentLaunches()
+
+        upcomingLaunches = (try? await upcomingTask) ?? []
+        recentLaunches = (try? await recentTask) ?? []
+    }
+
+    private func fetchEuropeanPowerData() async {
+        do {
+            europeanPowerData = try await APIService.shared.fetchEuropeanPowerData()
+        } catch {
+            print("[Power] Error: \(error.localizedDescription)")
+        }
     }
 }
